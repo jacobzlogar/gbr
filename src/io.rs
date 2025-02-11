@@ -1,0 +1,22 @@
+pub mod joypad;
+
+// I/O ranges for peripherals;
+pub const JOYPAD_INPUT: u16 = 0xff00;
+pub const SERIAL_TRANSFER_START: u16 = 0xff01;
+pub const SERIAL_TRANSFER_END: u16 = 0xff02;
+pub const TIMER_DIVIDER_START: u16 = 0xff04;
+pub const TIMER_DIVIDER_END: u16 = 0xff07;
+pub const INTERRUPTS: u16 = 0xff0f;
+pub const AUDIO_START: u16 = 0xff10;
+pub const AUDIO_END: u16 = 0xff26;
+pub const WAVE_PATTERN_START: u16 = 0xff30;
+pub const WAVE_PATTERN_END: u16 = 0xff3f;
+pub const LCD_CONTROL_START: u16 = 0xff40;
+pub const LCD_CONTROL_END: u16 = 0xff4b;
+pub const VRAM_BANK_SELECT: u16 = 0xff4f;
+pub const DISABLE_BOOT_ROM: u16 = 0xff50;
+pub const VRAM_DMA_START: u16 = 0xff51;
+pub const VRAM_DMA_END: u16 = 0xff55;
+pub const BG_OBJ_PALETTE_START: u16 = 0xff68;
+pub const BG_OBJ_PALETTE_END: u16 = 0xff6b;
+pub const WRAM_BANK_SELECT: u16 = 0xff70;

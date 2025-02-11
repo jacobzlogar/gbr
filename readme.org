@@ -1,0 +1,29 @@
+* Links:
+- https://gbdev.io/pandocs/Specifications.html
+- https://gbdev.io/pandocs/Graphics.html
+- https://gbdev.io/rgbds-live/
+- https://bgb.bircd.org/pandocs.html
+- http://marc.rawer.de/Gameboy/Docs/GBCPUman.pdf
+- http://www.pastraiser.com/cpu/gameboy/gameboy_opcodes.html
+- http://imrannazar.com/GameBoy-Emulation-in-JavaScript:-The-CPU
+- https://realboyemulator.wordpress.com/2013/01/03/a-look-at-the-game-boy-bootstrap-let-the-fun-begin/
+- https://realboyemulator.wordpress.com/2013/01/01/the-nintendo-game-boy-1/
+- http://gameboy.mongenel.com/dmg/asmmemmap.html
+- http://www.devrs.com/gb/
+- http://www.devrs.com/gb/files/opcodes.html
+- http://www.devrs.com/gb/files/gbspec.txt
+- http://verhoeven272.nl/cgi-bin/FS?fruttenboel%2FGameboy&Gameboy+section&GBtop&GBsummary&GBcontent
+- http://meatfighter.com/gameboy/GBCribSheet000129.pdf
+- http://meatfighter.com/gameboy/TheNintendoGameboy.pdf
+- http://gbdev.gg8.se/wiki/articles/Main_Page
+- http://gbdev.gg8.se/wiki/articles/Pan_Docs
+- http://gbdev.gg8.se/wiki/articles/The_Cartridge_Header
+
+
+TODO:
+- [ ] refactor decoding, ~OPCODE_TABLE~ should basically do all the heavy lifting, it reduces total operations if we decode and process instructions in the same spot instead of passing them back to the cpu for
+  processing, it seems like the simpler mental model too, the ~Option~ soup in ~Operands~ was not great
+- [x] decide if i'm going to represent registers & flags as an array of 16-bit integers and use bitwise ops to separate high/low registers (AC -> A/C)
+  - OR create a struct that represents registers and a struct that represents flags, initially this seems like it'd be the faster approach but during decoding
+    i would have to match the decoded register with a field in the struct and this could be bad?
+- [ ] working through arithmetic 8-bit operations (CP A, R8)
