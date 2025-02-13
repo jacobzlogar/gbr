@@ -21,9 +21,16 @@
 
 
 TODO:
-- [ ] refactor decoding, ~OPCODE_TABLE~ should basically do all the heavy lifting, it reduces total operations if we decode and process instructions in the same spot instead of passing them back to the cpu for
-  processing, it seems like the simpler mental model too, the ~Option~ soup in ~Operands~ was not great
-- [x] decide if i'm going to represent registers & flags as an array of 16-bit integers and use bitwise ops to separate high/low registers (AC -> A/C)
-  - OR create a struct that represents registers and a struct that represents flags, initially this seems like it'd be the faster approach but during decoding
-    i would have to match the decoded register with a field in the struct and this could be bad?
-- [ ] working through arithmetic 8-bit operations (CP A, R8)
+- [ ] add test cases for complicated instruction
+    - [ ] 
+- [x] decide what to do with the ~Thunk~ type param signature, if i refactor this it means changing all of the dispatch table params as well
+- [x] create prefix table for bitwise ops dispatched from 0xcb
+
+- instructions i need to finish:
+  - [ ] loadh immed -> a
+  - [ ] half of the bitshift instructions
+  - [ ] jump/subroutine instructions
+  - [ ] carry flag instructions
+  - [ ] most of the stack manipulation instructions
+  - [ ] halt instruction
+  - [ ] DAA 

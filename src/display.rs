@@ -1,7 +1,3 @@
-use std::sync::{Arc, atomic::AtomicU8, mpmc::Receiver};
-
-use crate::clock::Clock;
-
 /// These modes represent the modes the PPU cycles between during a frame
 ///
 /// A frame consists of 154 scan lines, during the first 144 the screen is drawn top to bottom, left to right

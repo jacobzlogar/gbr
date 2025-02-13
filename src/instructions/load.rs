@@ -24,7 +24,8 @@ pub fn load_r8_r8(
 }
 
 /// LD r8, n8
-pub fn load_n8_n8(register: Register8, n8: u8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
+/// Copy the value n8 into register r8.
+pub fn load_r8_n8(register: Register8, n8: u8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
     cpu.set_r8(register, n8);
     Ok(Instruction {
         mnemonic: Mnemonic::LD,
@@ -34,7 +35,8 @@ pub fn load_n8_n8(register: Register8, n8: u8, cpu: &mut Cpu) -> InstructionResu
 }
 
 /// LD r16, n16
-pub fn load_n16_n16(
+/// Copy the value n16 into register r16.
+pub fn load_r16_n16(
     register: Register16,
     n16: u16,
     cpu: &mut Cpu,
@@ -65,6 +67,7 @@ pub fn load_r8_hl(
 }
 
 /// LD [HL], n8
+/// Copy the value n8 into the byte pointed to by HL.
 pub fn load_n8_hl(n8: u8, cpu: &mut Cpu, mem: &mut MemoryMap) -> InstructionResult<Instruction> {
     let hl = cpu.registers[Register16::HL];
     mem.write(hl as usize, n8);
@@ -127,8 +130,27 @@ pub fn load_a_immed_n16(
 
 /// LDH A, [n16]
 /// Copy the byte at address n16 into register A, provided the address is between $FF00 and $FFFF.
-/// TODO: finish this
+/// TODO: fix this
 pub fn loadh_a_immed_n16(
+    n16: u16,
+    cpu: &mut Cpu,
+    mem: &mut MemoryMap,
+) -> InstructionResult<Instruction> {
+    let byte = mem.read(n16 as usize);
+    // if byte >= 0xff00 && byte <= 0xffff {
+    //     cpu.set_r8(Register8::A, byte);
+    // }
+    Ok(Instruction {
+        mnemonic: Mnemonic::LDH,
+        bytes: 2,
+        cycles: 3,
+    })
+}
+
+/// LDH [n16], A
+/// Copy the value in register A into the byte at address n16, provided the address is between $FF00 and $FFFF.
+/// TODO: fix this
+pub fn loadh_immed_n16_a(
     n16: u16,
     cpu: &mut Cpu,
     mem: &mut MemoryMap,

@@ -1,6 +1,29 @@
-use crate::Mnemonic;
+use crate::{Mnemonic, cpu::Cpu};
 
 use super::{Instruction, InstructionResult};
+
+/// DI
+/// Disable Interrupts by clearing the IME flag.
+pub fn di(cpu: &mut Cpu) -> InstructionResult<Instruction> {
+    cpu.ime = false;
+    Ok(Instruction {
+        mnemonic: Mnemonic::DI,
+        bytes: 1,
+        cycles: 1,
+    })
+}
+
+/// EI
+/// Enable Interrupts by setting the IME flag.
+/// The flag is only set after the instruction following EI.
+pub fn ei(cpu: &mut Cpu) -> InstructionResult<Instruction> {
+    cpu.ime = true;
+    Ok(Instruction {
+        mnemonic: Mnemonic::DI,
+        bytes: 1,
+        cycles: 1,
+    })
+}
 
 /// HALT
 /// The exact behavior of this instruction depends on the state of the IME flag, and whether interrupts are pending (i.e. whether ‘[IE] & [IF]’ is non-zero):
@@ -10,10 +33,12 @@ use super::{Instruction, InstructionResult};
 /// As soon as an interrupt becomes pending, the CPU resumes execution. This is like the above, except that the handler is not called.
 /// If the IME flag is not set, and some interrupt is pending:
 /// The CPU continues execution after the HALT, but the byte after it is read twice in a row (PC is not incremented, due to a hardware bug).
-pub fn halt() -> InstructionResult<Instruction> {
+pub fn halt(
+    cpu: &mut Cpu
+) -> InstructionResult<Instruction> {
     Ok(Instruction {
         mnemonic: Mnemonic::HALT,
         bytes: 1,
-        cycles: 0
+        cycles: 0,
     })
 }

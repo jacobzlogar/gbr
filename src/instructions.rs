@@ -1,26 +1,37 @@
-use crate::instructions::interrupts::halt;
-use arithmetic_16bit::{add_r16_to_hl, dec_r16, inc_r16};
-use arithmetic_8bit::{dec_r8, inc_r8};
-use bitshift::{rla, rlca, rra, rrca};
-use jumps::{jr, jr_cc};
-use load::{load_a_to_immed_r16, load_hl_to_r8, load_immed_r16_to_a, load_n16_to_r16, load_n8_to_r8, load_r8_to_hl, load_r8_to_r8};
+use arithmetic_8bit::{cp_a_hl, cp_a_n8, cp_a_r8, sbc_a_n8, sub_a_n8};
+#[allow(dead_code, unused_imports)]
+use arithmetic_8bit::{
+    adc_a_immed_hl, adc_a_n8, adc_a_r8, add_a_immed_hl, add_a_n8, add_a_r8, dec_hl, dec_r8, inc_hl,
+    inc_r8, sbc_a_immed_hl, sbc_a_r8, sub_a_immed_hl, sub_a_r8,
+};
+use arithmetic_16bit::{add_r16_hl, dec_r16, inc_r16};
+use bitflag::{bit_u3_hl, bit_u3_r8, res_u3_hl, res_u3_r8, set_u3_hl, set_u3_r8};
+use bitshift::{rl_hl, rl_r8, rla, rlc_hl, rlc_r8, rlca, rr_hl, rr_r8, rra, rrc_hl, rrc_r8, rrca, sla_hl, sla_r8, sra_hl, sra_r8, srl_hl, srl_r8, swap_hl, swap_r8};
+use bitwise::{and_a_immed_hl, and_a_n8, and_a_r8, or_a_hl, or_a_n8, or_a_r8, xor_a_immed_hl, xor_a_n8, xor_a_r8};
+use carry::{ccf, scf};
+use interrupts::{di, ei, halt};
+use jumps::{call_cc_n16, call_n16, jp_cc_n16, jp_hl, jp_n16, jr_cc_n16, jr_n16, ret, ret_cc, reti, rst};
+use load::{
+    load_a_hli, load_a_immed_n16, load_hl_r8, load_hld_a, load_hli_a, load_immed_r16_a, load_n8_hl, load_r16_n16, load_r8_hl, load_r8_n8, load_r8_r8, loadh_a_c, loadh_a_immed_n16, loadh_immed_n16_a
+};
 use misc::{daa, nop, stop};
-use stack::load_sp_to_immed_n16;
+use stack::{add_hl_sp, add_sp_e8, dec_sp, inc_sp, load_a16_sp, load_hl_sp_e8, load_sp_hl, load_sp_n16, pop_af, pop_r16, push_af, push_r16};
 
 use crate::{
-    Mnemonic, Thunk,
-    cpu::{Register8, Register16},
-    errors::DecodeError,
+    cpu::{Register16, Register8}, errors::DecodeError, InstructionFn, Mnemonic
 };
 
 pub mod arithmetic_16bit;
 pub mod arithmetic_8bit;
+pub mod bitflag;
 pub mod bitshift;
+pub mod bitwise;
+pub mod carry;
+pub mod interrupts;
 pub mod jumps;
 pub mod load;
 pub mod misc;
 pub mod stack;
-pub mod interrupts;
 
 #[derive(Debug)]
 pub enum Condition {
@@ -38,103 +49,17 @@ pub struct Instruction {
     pub cycles: u8,
 }
 
-#[derive(Debug)]
-pub struct Arith8Bit {
-    sum: u8,
-    flags: u8,
-}
-
-#[derive(Debug)]
-pub struct Arith16Bit {
-    sum: u16,
-    flags: u8,
-}
-
-// maybe this should just be a method on `Arith8Bit`
-pub fn add_8bit(a: u8, b: u8, carry_flag: Option<u8>) -> Arith8Bit {
-    let carry = match carry_flag {
-        Some(num) => num,
-        None => 0,
-    };
-    // https://stackoverflow.com/a/57822729 thanks
-    let half_carry = ((a & 0x0f) + (b & 0x0f) & 0x10) == 0x10;
-    let (sum, carry) = a.overflowing_add(b + carry);
-    let mut flags: u8 = 0;
-    // set the zero flag if sum == 0
-    flags |= ((sum == 0) as u8) << 7;
-    // set the subtraction flag to false
-    flags |= 0 << 6;
-    // set the half carry flag
-    flags |= (half_carry as u8) << 5;
-    // set the carry flag
-    flags |= (carry as u8) << 4;
-    Arith8Bit { sum, flags }
-}
-
-pub fn sub_8bit(a: u8, b: u8, carry_flag: Option<u8>) -> Arith8Bit {
-    let carry = match carry_flag {
-        Some(num) => num as u8,
-        None => 0,
-    };
-    let a_mask = a as i16 & 0x0f;
-    let b_mask = b as i16 & 0x0f;
-    let half_carry = a_mask - b_mask < 0;
-    let (sum, _) = a.overflowing_sub(b);
-    let carry = b >= sum;
-    let mut flags: u8 = 0;
-    flags |= ((sum == 0) as u8) << 7;
-    flags |= 1 << 6;
-    flags |= (half_carry as u8) << 5;
-    flags |= (carry as u8) << 4;
-    Arith8Bit { sum, flags }
-}
-
-pub fn add_16bit(a: u16, b: u16, carry_flag: Option<u8>) -> Arith16Bit {
-    let carry = match carry_flag {
-        Some(num) => num as u16,
-        None => 0,
-    };
-    let half_carry = ((a & 0x00ff) + (b & 0x00ff) & 0x0100) == 0x0100;
-    let (sum, carry) = a.overflowing_add(b + carry);
-    let mut flags: u8 = 0;
-    flags |= ((sum == 0) as u8) << 7;
-    flags |= 0 << 6;
-    flags |= (half_carry as u8) << 5;
-    flags |= (carry as u8) << 4;
-    Arith16Bit { sum, flags }
-}
-
-pub fn sub_16bit(a: u16, b: u16, carry_flag: Option<u8>) -> Arith16Bit {
-    // let carry = match carry_flag {
-    //     Some(num) => num as u16,
-    //     None => 0,
-    // };
-
-    let half_carry = (a & 0x00ff) - (b & 0x00ff) < 0;
-    let (sum, carry) = a.overflowing_sub(b);
-    let mut flags: u8 = 0;
-    flags |= ((sum == 0) as u8) << 7;
-    flags |= 0 << 6;
-    flags |= (half_carry as u8) << 5;
-    flags |= (carry as u8) << 4;
-    Arith16Bit { sum, flags }
-}
-
 pub type InstructionResult<T> = std::result::Result<T, DecodeError>;
 
 fn get_i8(iter: &mut std::slice::Iter<u8>) -> InstructionResult<i8> {
-    Ok(*iter.next().ok_or(DecodeError::MissingDataByte)? as i8)
+    let num = *iter.next().ok_or(DecodeError::MissingDataByte)?;
+    Ok(num as i8)
 }
+
 fn get_u8(iter: &mut std::slice::Iter<u8>) -> InstructionResult<u8> {
     Ok(*iter.next().ok_or(DecodeError::MissingDataByte)?)
 }
-fn get_i16(iter: &mut std::slice::Iter<u8>) -> InstructionResult<i16> {
-    let n16 = i16::from_le_bytes([
-        *iter.next().ok_or(DecodeError::MissingDataByte)?,
-        *iter.next().ok_or(DecodeError::MissingDataByte)?,
-    ]);
-    Ok(n16)
-}
+
 fn get_u16(iter: &mut std::slice::Iter<u8>) -> InstructionResult<u16> {
     let n16 = u16::from_le_bytes([
         *iter.next().ok_or(DecodeError::MissingDataByte)?,
@@ -143,124 +68,556 @@ fn get_u16(iter: &mut std::slice::Iter<u8>) -> InstructionResult<u16> {
     Ok(n16)
 }
 
-pub const INSTRUCTION_SET: [Thunk; 112] = [
+/// Game Boy CPU (SM83) instruction set
+/// https://gbdev.io/gb-opcodes/optables/#standard
+pub const INSTRUCTION_SET: [InstructionFn; 256] = [
     // row 1
-    |_, _, _| nop(),
-    |iter, cpu, _| load_n16_to_r16(Register16::BC, get_u16(iter)?, cpu),
-    |_, cpu, mem| load_a_to_immed_r16(Register16::BC, cpu, mem),
-    |_, cpu, _| inc_r16(Register16::BC, cpu),
-    |_, cpu, _| inc_r8(Register8::B, cpu),
-    |_, cpu, _| dec_r8(Register8::B, cpu),
-    |iter, cpu, _| load_n8_to_r8(Register8::B, get_u8(iter)?, cpu),
-    |_, cpu, _| rlca(cpu),
-    |iter, cpu, mem| load_sp_to_immed_n16(get_u16(iter)?, cpu, mem),
-    |_, cpu, _| add_r16_to_hl(Register16::BC, cpu),
-    |_, cpu, mem| load_immed_r16_to_a(Register16::BC, cpu, mem),
-    |_, cpu, _| dec_r16(Register16::BC, cpu),
-    |_, cpu, _| inc_r8(Register8::C, cpu),
-    |_, cpu, _| dec_r8(Register8::C, cpu),
-    |iter, cpu, _| load_n8_to_r8(Register8::C, get_u8(iter)?, cpu),
-    |_, cpu, _| rrca(cpu),
+    |_| nop(),
+    |ctx| load_r16_n16(Register16::BC, get_u16(ctx.iter)?, ctx.cpu),
+    |ctx| load_immed_r16_a(Register16::BC, ctx.cpu, ctx.memory),
+    |ctx| inc_r16(Register16::BC, ctx.cpu),
+    |ctx| inc_r8(Register8::B, ctx.cpu),
+    |ctx| dec_r8(Register8::B, ctx.cpu),
+    |ctx| load_r8_n8(Register8::B, get_u8(ctx.iter)?, ctx.cpu),
+    |ctx| rlca(ctx.cpu),
+    |ctx| load_a16_sp(get_u16(ctx.iter)?, ctx.cpu, ctx.memory),
+    |ctx| add_r16_hl(Register16::BC, ctx.cpu),
+    |ctx| load_immed_r16_a(Register16::BC, ctx.cpu, ctx.memory),
+    |ctx| dec_r16(Register16::BC, ctx.cpu),
+    |ctx| inc_r8(Register8::C, ctx.cpu),
+    |ctx| dec_r8(Register8::C, ctx.cpu),
+    |ctx| load_r8_n8(Register8::C, get_u8(ctx.iter)?, ctx.cpu),
+    |ctx| rrca(ctx.cpu),
     // row 2
-    |_, _, _| stop(),
-    |iter, cpu, _| load_n16_to_r16(Register16::DE, get_u16(iter)?, cpu),
-    |_, cpu, mem| load_a_to_immed_r16(Register16::DE, cpu, mem),
-    |_, cpu, _| inc_r16(Register16::DE, cpu),
-    |_, cpu, _| inc_r8(Register8::D, cpu),
-    |_, cpu, _| dec_r8(Register8::D, cpu),
-    |iter, cpu, _| load_n8_to_r8(Register8::D, get_u8(iter)?, cpu),
-    |_, cpu, _| rla(cpu),
-    |iter, cpu, _| jr(get_i16(iter)?, cpu),
-    |_, cpu, _| add_r16_to_hl(Register16::DE, cpu),
-    |_, cpu, mem| load_immed_r16_to_a(Register16::DE, cpu, mem),
-    |_, cpu, _| dec_r16(Register16::DE, cpu),
-    |_, cpu, _| inc_r8(Register8::E, cpu),
-    |_, cpu, _| dec_r8(Register8::E, cpu),
-    |iter, cpu, _| load_n8_to_r8(Register8::E, get_u8(iter)?, cpu),
-    |_, cpu, _| rra(cpu),
+    |_| stop(),
+    |ctx| load_r16_n16(Register16::DE, get_u16(ctx.iter)?, ctx.cpu),
+    |ctx| load_immed_r16_a(Register16::DE, ctx.cpu, ctx.memory),
+    |ctx| inc_r16(Register16::DE, ctx.cpu),
+    |ctx| inc_r8(Register8::D, ctx.cpu),
+    |ctx| dec_r8(Register8::D, ctx.cpu),
+    |ctx| load_r8_n8(Register8::D, get_u8(ctx.iter)?, ctx.cpu),
+    |ctx| rla(ctx.cpu),
+    |ctx| jr_n16(get_u16(ctx.iter)?, ctx.cpu),
+    |ctx| add_r16_hl(Register16::DE, ctx.cpu),
+    |ctx| load_immed_r16_a(Register16::DE, ctx.cpu, ctx.memory),
+    |ctx| dec_r16(Register16::DE, ctx.cpu),
+    |ctx| inc_r8(Register8::E, ctx.cpu),
+    |ctx| dec_r8(Register8::E, ctx.cpu),
+    |ctx| load_r8_n8(Register8::E, get_u8(ctx.iter)?, ctx.cpu),
+    |ctx| rra(ctx.cpu),
     // row 3
-    |iter, cpu, _| jr_cc(Condition::NotZero, get_i8(iter)?, cpu),
-    |iter, cpu, _| load_n16_to_r16(Register16::DE, get_u16(iter)?, cpu),
-    |_, cpu, mem| load_a_to_immed_r16(Register16::DE, cpu, mem),
-    |_, cpu, _| inc_r16(Register16::HL, cpu),
-    |_, cpu, _| inc_r8(Register8::H, cpu),
-    |_, cpu, _| dec_r8(Register8::H, cpu),
-    |iter, cpu, _| load_n8_to_r8(Register8::H, get_u8(iter)?, cpu),
-    |_, cpu, _| daa(cpu),
-    |iter, cpu, _| jr_cc(Condition::Zero, get_i8(iter)?, cpu),
-    |_, cpu, _| add_r16_to_hl(Register16::HL, cpu),
-    |_, cpu, mem| load_immed_r16_to_a(Register16::DE, cpu, mem),
-    |_, cpu, _| dec_r16(Register16::DE, cpu),
-    |_, cpu, _| inc_r8(Register8::E, cpu),
-    |_, cpu, _| dec_r8(Register8::E, cpu),
-    |iter, cpu, _| load_n8_to_r8(Register8::E, get_u8(iter)?, cpu),
-    |_, cpu, _| rra(cpu),
+    |ctx| jr_cc_n16(get_u16(ctx.iter)?, Condition::NotZero, ctx.cpu),
+    |ctx| load_r16_n16(Register16::DE, get_u16(ctx.iter)?, ctx.cpu),
+    |ctx| load_hli_a(ctx.cpu, ctx.memory),
+    |ctx| inc_r16(Register16::HL, ctx.cpu),
+    |ctx| inc_r8(Register8::H, ctx.cpu),
+    |ctx| dec_r8(Register8::H, ctx.cpu),
+    |ctx| load_r8_n8(Register8::H, get_u8(ctx.iter)?, ctx.cpu),
+    |ctx| daa(ctx.cpu),
+    |ctx| jr_cc_n16(get_u16(ctx.iter)?, Condition::Zero, ctx.cpu),
+    |ctx| add_r16_hl(Register16::HL, ctx.cpu),
+    |ctx| load_a_hli(ctx.cpu, ctx.memory),
+    |ctx| dec_r16(Register16::DE, ctx.cpu),
+    |ctx| inc_r8(Register8::E, ctx.cpu),
+    |ctx| dec_r8(Register8::E, ctx.cpu),
+    |ctx| load_r8_n8(Register8::E, get_u8(ctx.iter)?, ctx.cpu),
+    |ctx| rra(ctx.cpu),
     // row 4
-    |_, cpu, _| load_r8_to_r8(Register8::B, Register8::B, cpu),
-    |_, cpu, _| load_r8_to_r8(Register8::C, Register8::B, cpu),
-    |_, cpu, _| load_r8_to_r8(Register8::D, Register8::B, cpu),
-    |_, cpu, _| load_r8_to_r8(Register8::E, Register8::B, cpu),
-    |_, cpu, _| load_r8_to_r8(Register8::H, Register8::B, cpu),
-    |_, cpu, _| load_r8_to_r8(Register8::L, Register8::B, cpu),
-    |_, cpu, mem| load_hl_to_r8(Register8::B, cpu, mem),
-    |_, cpu, _| load_r8_to_r8(Register8::A, Register8::B, cpu),
-    |_, cpu, _| load_r8_to_r8(Register8::B, Register8::C, cpu),
-    |_, cpu, _| load_r8_to_r8(Register8::C, Register8::C, cpu),
-    |_, cpu, _| load_r8_to_r8(Register8::D, Register8::C, cpu),
-    |_, cpu, _| load_r8_to_r8(Register8::E, Register8::C, cpu),
-    |_, cpu, _| load_r8_to_r8(Register8::H, Register8::C, cpu),
-    |_, cpu, _| load_r8_to_r8(Register8::L, Register8::C, cpu),
-    |_, cpu, mem| load_hl_to_r8(Register8::C, cpu, mem),
-    |_, cpu, _| load_r8_to_r8(Register8::A, Register8::C, cpu),
+    |ctx| jr_cc_n16(get_u16(ctx.iter)?, Condition::NotCarry, ctx.cpu),
+    |ctx| load_sp_n16(get_u16(ctx.iter)?, ctx.cpu),
+    |ctx| load_hld_a(ctx.cpu, ctx.memory),
+    |ctx| inc_sp(ctx.cpu),
+    |ctx| inc_hl(ctx.cpu, ctx.memory),
+    |ctx| dec_hl(ctx.cpu, ctx.memory),
+    |ctx| load_n8_hl(get_u8(ctx.iter)?, ctx.cpu, ctx.memory),
+    |ctx| scf(ctx.cpu),
+    |ctx| jr_cc_n16(get_u16(ctx.iter)?, Condition::Carry, ctx.cpu),
+    |ctx| add_hl_sp(ctx.cpu),
+    |ctx| load_hld_a(ctx.cpu, ctx.memory),
+    |ctx| dec_sp(ctx.cpu),
+    |ctx| inc_r8(Register8::A, ctx.cpu),
+    |ctx| dec_r8(Register8::A, ctx.cpu),
+    |ctx| load_r8_n8(Register8::A, get_u8(ctx.iter)?, ctx.cpu),
+    |ctx| ccf(ctx.cpu),
     // row 5
-    |_, cpu, _| load_r8_to_r8(Register8::B, Register8::D, cpu),
-    |_, cpu, _| load_r8_to_r8(Register8::C, Register8::D, cpu),
-    |_, cpu, _| load_r8_to_r8(Register8::D, Register8::D, cpu),
-    |_, cpu, _| load_r8_to_r8(Register8::E, Register8::D, cpu),
-    |_, cpu, _| load_r8_to_r8(Register8::H, Register8::D, cpu),
-    |_, cpu, _| load_r8_to_r8(Register8::L, Register8::D, cpu),
-    |_, cpu, mem| load_hl_to_r8(Register8::D, cpu, mem),
-    |_, cpu, _| load_r8_to_r8(Register8::A, Register8::D, cpu),
-    |_, cpu, _| load_r8_to_r8(Register8::B, Register8::E, cpu),
-    |_, cpu, _| load_r8_to_r8(Register8::C, Register8::E, cpu),
-    |_, cpu, _| load_r8_to_r8(Register8::D, Register8::E, cpu),
-    |_, cpu, _| load_r8_to_r8(Register8::E, Register8::E, cpu),
-    |_, cpu, _| load_r8_to_r8(Register8::H, Register8::E, cpu),
-    |_, cpu, _| load_r8_to_r8(Register8::L, Register8::E, cpu),
-    |_, cpu, mem| load_hl_to_r8(Register8::E, cpu, mem),
-    |_, cpu, _| load_r8_to_r8(Register8::A, Register8::E, cpu),
+    |ctx| load_r8_r8(Register8::B, Register8::B, ctx.cpu),
+    |ctx| load_r8_r8(Register8::C, Register8::B, ctx.cpu),
+    |ctx| load_r8_r8(Register8::D, Register8::B, ctx.cpu),
+    |ctx| load_r8_r8(Register8::E, Register8::B, ctx.cpu),
+    |ctx| load_r8_r8(Register8::H, Register8::B, ctx.cpu),
+    |ctx| load_r8_r8(Register8::L, Register8::B, ctx.cpu),
+    |ctx| load_hl_r8(Register8::B, ctx.cpu, ctx.memory),
+    |ctx| load_r8_r8(Register8::A, Register8::B, ctx.cpu),
+    |ctx| load_r8_r8(Register8::B, Register8::C, ctx.cpu),
+    |ctx| load_r8_r8(Register8::C, Register8::C, ctx.cpu),
+    |ctx| load_r8_r8(Register8::D, Register8::C, ctx.cpu),
+    |ctx| load_r8_r8(Register8::E, Register8::C, ctx.cpu),
+    |ctx| load_r8_r8(Register8::H, Register8::C, ctx.cpu),
+    |ctx| load_r8_r8(Register8::L, Register8::C, ctx.cpu),
+    |ctx| load_hl_r8(Register8::C, ctx.cpu, ctx.memory),
+    |ctx| load_r8_r8(Register8::A, Register8::C, ctx.cpu),
     // row 6
-    |_, cpu, _| load_r8_to_r8(Register8::B, Register8::H, cpu),
-    |_, cpu, _| load_r8_to_r8(Register8::C, Register8::H, cpu),
-    |_, cpu, _| load_r8_to_r8(Register8::D, Register8::H, cpu),
-    |_, cpu, _| load_r8_to_r8(Register8::E, Register8::H, cpu),
-    |_, cpu, _| load_r8_to_r8(Register8::H, Register8::H, cpu),
-    |_, cpu, _| load_r8_to_r8(Register8::L, Register8::H, cpu),
-    |_, cpu, mem| load_hl_to_r8(Register8::H, cpu, mem),
-    |_, cpu, _| load_r8_to_r8(Register8::A, Register8::H, cpu),
-    |_, cpu, _| load_r8_to_r8(Register8::B, Register8::L, cpu),
-    |_, cpu, _| load_r8_to_r8(Register8::C, Register8::L, cpu),
-    |_, cpu, _| load_r8_to_r8(Register8::D, Register8::L, cpu),
-    |_, cpu, _| load_r8_to_r8(Register8::E, Register8::L, cpu),
-    |_, cpu, _| load_r8_to_r8(Register8::H, Register8::L, cpu),
-    |_, cpu, _| load_r8_to_r8(Register8::L, Register8::L, cpu),
-    |_, cpu, mem| load_hl_to_r8(Register8::L, cpu, mem),
-    |_, cpu, _| load_r8_to_r8(Register8::A, Register8::L, cpu),
+    |ctx| load_r8_r8(Register8::B, Register8::D, ctx.cpu),
+    |ctx| load_r8_r8(Register8::C, Register8::D, ctx.cpu),
+    |ctx| load_r8_r8(Register8::D, Register8::D, ctx.cpu),
+    |ctx| load_r8_r8(Register8::E, Register8::D, ctx.cpu),
+    |ctx| load_r8_r8(Register8::H, Register8::D, ctx.cpu),
+    |ctx| load_r8_r8(Register8::L, Register8::D, ctx.cpu),
+    |ctx| load_hl_r8(Register8::D, ctx.cpu, ctx.memory),
+    |ctx| load_r8_r8(Register8::A, Register8::D, ctx.cpu),
+    |ctx| load_r8_r8(Register8::B, Register8::E, ctx.cpu),
+    |ctx| load_r8_r8(Register8::C, Register8::E, ctx.cpu),
+    |ctx| load_r8_r8(Register8::D, Register8::E, ctx.cpu),
+    |ctx| load_r8_r8(Register8::E, Register8::E, ctx.cpu),
+    |ctx| load_r8_r8(Register8::H, Register8::E, ctx.cpu),
+    |ctx| load_r8_r8(Register8::L, Register8::E, ctx.cpu),
+    |ctx| load_hl_r8(Register8::E, ctx.cpu, ctx.memory),
+    |ctx| load_r8_r8(Register8::A, Register8::E, ctx.cpu),
     // row 7
-    |_, cpu, mem| load_r8_to_hl(Register8::B, cpu, mem),
-    |_, cpu, mem| load_r8_to_hl(Register8::C, cpu, mem),
-    |_, cpu, mem| load_r8_to_hl(Register8::D, cpu, mem),
-    |_, cpu, mem| load_r8_to_hl(Register8::E, cpu, mem),
-    |_, cpu, mem| load_r8_to_hl(Register8::H, cpu, mem),
-    |_, cpu, mem| load_r8_to_hl(Register8::L, cpu, mem),
-    |_, _, _| halt(),
-    |_, cpu, mem| load_r8_to_hl(Register8::A, cpu, mem),
-    |_, cpu, _| load_r8_to_r8(Register8::B, Register8::A, cpu),
-    |_, cpu, _| load_r8_to_r8(Register8::C, Register8::A, cpu),
-    |_, cpu, _| load_r8_to_r8(Register8::D, Register8::A, cpu),
-    |_, cpu, _| load_r8_to_r8(Register8::E, Register8::A, cpu),
-    |_, cpu, _| load_r8_to_r8(Register8::H, Register8::A, cpu),
-    |_, cpu, _| load_r8_to_r8(Register8::L, Register8::A, cpu),
-    |_, cpu, mem| load_hl_to_r8(Register8::A, cpu, mem),
-    |_, cpu, _| load_r8_to_r8(Register8::A, Register8::A, cpu),
+    |ctx| load_r8_r8(Register8::B, Register8::H, ctx.cpu),
+    |ctx| load_r8_r8(Register8::C, Register8::H, ctx.cpu),
+    |ctx| load_r8_r8(Register8::D, Register8::H, ctx.cpu),
+    |ctx| load_r8_r8(Register8::E, Register8::H, ctx.cpu),
+    |ctx| load_r8_r8(Register8::H, Register8::H, ctx.cpu),
+    |ctx| load_r8_r8(Register8::L, Register8::H, ctx.cpu),
+    |ctx| load_hl_r8(Register8::H, ctx.cpu, ctx.memory),
+    |ctx| load_r8_r8(Register8::A, Register8::H, ctx.cpu),
+    |ctx| load_r8_r8(Register8::B, Register8::L, ctx.cpu),
+    |ctx| load_r8_r8(Register8::C, Register8::L, ctx.cpu),
+    |ctx| load_r8_r8(Register8::D, Register8::L, ctx.cpu),
+    |ctx| load_r8_r8(Register8::E, Register8::L, ctx.cpu),
+    |ctx| load_r8_r8(Register8::H, Register8::L, ctx.cpu),
+    |ctx| load_r8_r8(Register8::L, Register8::L, ctx.cpu),
+    |ctx| load_hl_r8(Register8::L, ctx.cpu, ctx.memory),
+    |ctx| load_r8_r8(Register8::A, Register8::L, ctx.cpu),
+    // row 8
+    |ctx| load_r8_hl(Register8::B, ctx.cpu, ctx.memory),
+    |ctx| load_r8_hl(Register8::C, ctx.cpu, ctx.memory),
+    |ctx| load_r8_hl(Register8::D, ctx.cpu, ctx.memory),
+    |ctx| load_r8_hl(Register8::E, ctx.cpu, ctx.memory),
+    |ctx| load_r8_hl(Register8::H, ctx.cpu, ctx.memory),
+    |ctx| load_r8_hl(Register8::L, ctx.cpu, ctx.memory),
+    |ctx| halt(ctx.cpu),
+    |ctx| load_r8_hl(Register8::A, ctx.cpu, ctx.memory),
+    |ctx| load_r8_r8(Register8::B, Register8::A, ctx.cpu),
+    |ctx| load_r8_r8(Register8::C, Register8::A, ctx.cpu),
+    |ctx| load_r8_r8(Register8::D, Register8::A, ctx.cpu),
+    |ctx| load_r8_r8(Register8::E, Register8::A, ctx.cpu),
+    |ctx| load_r8_r8(Register8::H, Register8::A, ctx.cpu),
+    |ctx| load_r8_r8(Register8::L, Register8::A, ctx.cpu),
+    |ctx| load_hl_r8(Register8::A, ctx.cpu, ctx.memory),
+    |ctx| load_r8_r8(Register8::A, Register8::A, ctx.cpu),
+    // row 9
+    |ctx| add_a_r8(Register8::B, ctx.cpu),
+    |ctx| add_a_r8(Register8::C, ctx.cpu),
+    |ctx| add_a_r8(Register8::D, ctx.cpu),
+    |ctx| add_a_r8(Register8::E, ctx.cpu),
+    |ctx| add_a_r8(Register8::H, ctx.cpu),
+    |ctx| add_a_r8(Register8::L, ctx.cpu),
+    |ctx| add_a_immed_hl(ctx.cpu, ctx.memory),
+    |ctx| add_a_r8(Register8::A, ctx.cpu),
+    |ctx| adc_a_r8(Register8::B, ctx.cpu),
+    |ctx| adc_a_r8(Register8::C, ctx.cpu),
+    |ctx| adc_a_r8(Register8::D, ctx.cpu),
+    |ctx| adc_a_r8(Register8::E, ctx.cpu),
+    |ctx| adc_a_r8(Register8::H, ctx.cpu),
+    |ctx| adc_a_r8(Register8::L, ctx.cpu),
+    |ctx| adc_a_immed_hl(ctx.cpu, ctx.memory),
+    |ctx| adc_a_r8(Register8::A, ctx.cpu),
+    // row 10
+    |ctx| sub_a_r8(Register8::B, ctx.cpu),
+    |ctx| sub_a_r8(Register8::C, ctx.cpu),
+    |ctx| sub_a_r8(Register8::D, ctx.cpu),
+    |ctx| sub_a_r8(Register8::E, ctx.cpu),
+    |ctx| sub_a_r8(Register8::H, ctx.cpu),
+    |ctx| sub_a_r8(Register8::L, ctx.cpu),
+    |ctx| sub_a_immed_hl(ctx.cpu, ctx.memory),
+    |ctx| sub_a_r8(Register8::A, ctx.cpu),
+    |ctx| sbc_a_r8(Register8::B, ctx.cpu),
+    |ctx| sbc_a_r8(Register8::C, ctx.cpu),
+    |ctx| sbc_a_r8(Register8::D, ctx.cpu),
+    |ctx| sbc_a_r8(Register8::E, ctx.cpu),
+    |ctx| sbc_a_r8(Register8::H, ctx.cpu),
+    |ctx| sbc_a_r8(Register8::L, ctx.cpu),
+    |ctx| sbc_a_immed_hl(ctx.cpu, ctx.memory),
+    |ctx| sbc_a_r8(Register8::A, ctx.cpu),
+    // row 11
+    |ctx| and_a_r8(Register8::B, ctx.cpu),
+    |ctx| and_a_r8(Register8::C, ctx.cpu),
+    |ctx| and_a_r8(Register8::D, ctx.cpu),
+    |ctx| and_a_r8(Register8::E, ctx.cpu),
+    |ctx| and_a_r8(Register8::H, ctx.cpu),
+    |ctx| and_a_r8(Register8::L, ctx.cpu),
+    |ctx| and_a_immed_hl(ctx.cpu, ctx.memory),
+    |ctx| and_a_r8(Register8::A, ctx.cpu),
+    |ctx| xor_a_r8(Register8::B, ctx.cpu),
+    |ctx| xor_a_r8(Register8::C, ctx.cpu),
+    |ctx| xor_a_r8(Register8::D, ctx.cpu),
+    |ctx| xor_a_r8(Register8::E, ctx.cpu),
+    |ctx| xor_a_r8(Register8::H, ctx.cpu),
+    |ctx| xor_a_r8(Register8::L, ctx.cpu),
+    |ctx| xor_a_immed_hl(ctx.cpu, ctx.memory),
+    |ctx| xor_a_r8(Register8::A, ctx.cpu),
+    // row 12
+    |ctx| or_a_r8(Register8::B, ctx.cpu),
+    |ctx| or_a_r8(Register8::C, ctx.cpu),
+    |ctx| or_a_r8(Register8::D, ctx.cpu),
+    |ctx| or_a_r8(Register8::E, ctx.cpu),
+    |ctx| or_a_r8(Register8::H, ctx.cpu),
+    |ctx| or_a_r8(Register8::L, ctx.cpu),
+    |ctx| or_a_hl(ctx.cpu, ctx.memory),
+    |ctx| or_a_r8(Register8::A, ctx.cpu),
+    |ctx| cp_a_r8(Register8::B, ctx.cpu),
+    |ctx| cp_a_r8(Register8::C, ctx.cpu),
+    |ctx| cp_a_r8(Register8::D, ctx.cpu),
+    |ctx| cp_a_r8(Register8::E, ctx.cpu),
+    |ctx| cp_a_r8(Register8::H, ctx.cpu),
+    |ctx| cp_a_r8(Register8::L, ctx.cpu),
+    |ctx| cp_a_hl(ctx.cpu, ctx.memory),
+    |ctx| cp_a_r8(Register8::A, ctx.cpu),
+    // row 13
+    |ctx| ret_cc(Condition::NotZero, ctx.cpu),
+    |ctx| pop_r16(Register16::BC, ctx.cpu),
+    |ctx| jp_cc_n16(get_u16(ctx.iter)?, Condition::NotZero, ctx.cpu),
+    |ctx| jp_n16(get_u16(ctx.iter)?, ctx.cpu),
+    |ctx| call_cc_n16(get_u16(ctx.iter)?, Condition::NotZero, ctx.cpu),
+    |ctx| push_r16(Register16::BC, ctx.cpu),
+    |ctx| add_a_n8(get_u8(ctx.iter)?, ctx.cpu),
+    |ctx| rst(0x00, ctx.cpu), // TODO: fix this
+    |ctx| ret_cc(Condition::Zero, ctx.cpu),
+    |ctx| ret(ctx.cpu),
+    |ctx| jp_cc_n16(get_u16(ctx.iter)?, Condition::Zero, ctx.cpu),
+    |ctx| PREFIX_TABLE[*ctx.iter.next().unwrap() as usize](ctx),
+    |ctx| call_cc_n16(get_u16(ctx.iter)?, Condition::Zero, ctx.cpu),
+    |ctx| call_n16(get_u16(ctx.iter)?, ctx.cpu),
+    |ctx| adc_a_n8(get_u8(ctx.iter)?, ctx.cpu),
+    |ctx| rst(0x08, ctx.cpu),
+    // row 14
+    |ctx| ret_cc(Condition::NotCarry, ctx.cpu),
+    |ctx| pop_r16(Register16::DE, ctx.cpu),
+    |ctx| jp_cc_n16(get_u16(ctx.iter)?, Condition::NotCarry, ctx.cpu),
+    |_| Err(DecodeError::InvalidOpcodeByte(0xd3)),
+    |ctx| call_cc_n16(get_u16(ctx.iter)?, Condition::NotCarry, ctx.cpu),
+    |ctx| push_r16(Register16::DE, ctx.cpu),
+    |ctx| sub_a_n8(get_u8(ctx.iter)?, ctx.cpu),
+    |ctx| rst(0x10, ctx.cpu),
+    |ctx| ret_cc(Condition::Carry, ctx.cpu),
+    |ctx| reti(ctx.cpu),
+    |ctx| jp_cc_n16(get_u16(ctx.iter)?, Condition::Carry, ctx.cpu),
+    |_| Err(DecodeError::InvalidOpcodeByte(0xdb)),
+    |ctx| call_cc_n16(get_u16(ctx.iter)?, Condition::Carry, ctx.cpu),
+    |_| Err(DecodeError::InvalidOpcodeByte(0xdd)),
+    |ctx| sbc_a_n8(get_u8(ctx.iter)?, ctx.cpu),
+    |ctx| rst(0x18, ctx.cpu),
+    // row 15
+    |ctx| loadh_a_immed_n16(get_u16(ctx.iter)?, ctx.cpu, ctx.memory),
+    |ctx| pop_r16(Register16::DE, ctx.cpu),
+    |ctx| loadh_a_c(ctx.cpu, ctx.memory),
+    |_| Err(DecodeError::InvalidOpcodeByte(0xe3)),
+    |_| Err(DecodeError::InvalidOpcodeByte(0xe4)),
+    |ctx| push_r16(Register16::HL, ctx.cpu),
+    |ctx| and_a_n8(get_u8(ctx.iter)?, ctx.cpu),
+    |ctx| rst(0x20, ctx.cpu), // TODO: fix this
+    |ctx| add_sp_e8(get_u8(ctx.iter)?, ctx.cpu),
+    |ctx| jp_hl(ctx.cpu, ctx.memory),
+    |ctx| load_a_immed_n16(get_u16(ctx.iter)?, ctx.cpu, ctx.memory),
+    |_| Err(DecodeError::InvalidOpcodeByte(0xeb)), 
+    |_| Err(DecodeError::InvalidOpcodeByte(0xec)), 
+    |_| Err(DecodeError::InvalidOpcodeByte(0xed)), 
+    |ctx| xor_a_n8(get_u8(ctx.iter)?, ctx.cpu),
+    |ctx| rst(0x28, ctx.cpu),
+    // row 16
+    |ctx| loadh_immed_n16_a(get_u16(ctx.iter)?, ctx.cpu, ctx.memory),
+    |ctx| pop_af(ctx.cpu),
+    |ctx| loadh_a_c(ctx.cpu, ctx.memory),
+    |ctx| di(ctx.cpu),
+    |_| Err(DecodeError::InvalidOpcodeByte(0xf4)),
+    |ctx| push_af(ctx.cpu),
+    |ctx| or_a_n8(get_u8(ctx.iter)?, ctx.cpu),
+    |ctx| rst(0x30, ctx.cpu), // TODO: fix this
+    |ctx| load_hl_sp_e8(get_i8(ctx.iter)?, ctx.cpu),
+    |ctx| load_sp_hl(ctx.cpu),
+    |ctx| load_a_immed_n16(get_u16(ctx.iter)?, ctx.cpu, ctx.memory),
+    |ctx| ei(ctx.cpu),
+    |_| Err(DecodeError::InvalidOpcodeByte(0xfc)),
+    |_| Err(DecodeError::InvalidOpcodeByte(0xfd)),
+    |ctx| cp_a_n8(get_u8(ctx.iter)?, ctx.cpu),
+    |ctx| rst(0x38, ctx.cpu),
+];
+
+/// Prefixed ($CB $xx)
+/// https://gbdev.io/gb-opcodes/optables/#prefixed
+pub const PREFIX_TABLE: [InstructionFn; 256] = [
+    // row 1
+    |ctx| rlc_r8(Register8::B, ctx.cpu),
+    |ctx| rlc_r8(Register8::C, ctx.cpu),
+    |ctx| rlc_r8(Register8::D, ctx.cpu),
+    |ctx| rlc_r8(Register8::E, ctx.cpu),
+    |ctx| rlc_r8(Register8::H, ctx.cpu),
+    |ctx| rlc_r8(Register8::L, ctx.cpu),
+    |ctx| rlc_hl(ctx.cpu, ctx.memory),
+    |ctx| rlc_r8(Register8::A, ctx.cpu),
+    |ctx| rrc_r8(Register8::B, ctx.cpu),
+    |ctx| rrc_r8(Register8::C, ctx.cpu),
+    |ctx| rrc_r8(Register8::D, ctx.cpu),
+    |ctx| rrc_r8(Register8::E, ctx.cpu),
+    |ctx| rrc_r8(Register8::H, ctx.cpu),
+    |ctx| rrc_r8(Register8::L, ctx.cpu),
+    |ctx| rrc_hl(ctx.cpu, ctx.memory),
+    |ctx| rrc_r8(Register8::A, ctx.cpu),
+    // row 2
+    |ctx| rl_r8(Register8::B, ctx.cpu),
+    |ctx| rl_r8(Register8::C, ctx.cpu),
+    |ctx| rl_r8(Register8::D, ctx.cpu),
+    |ctx| rl_r8(Register8::E, ctx.cpu),
+    |ctx| rl_r8(Register8::H, ctx.cpu),
+    |ctx| rl_r8(Register8::L, ctx.cpu),
+    |ctx| rl_hl(ctx.cpu, ctx.memory),
+    |ctx| rl_r8(Register8::A, ctx.cpu),
+    |ctx| rr_r8(Register8::B, ctx.cpu),
+    |ctx| rr_r8(Register8::C, ctx.cpu),
+    |ctx| rr_r8(Register8::D, ctx.cpu),
+    |ctx| rr_r8(Register8::E, ctx.cpu),
+    |ctx| rr_r8(Register8::H, ctx.cpu),
+    |ctx| rr_r8(Register8::L, ctx.cpu),
+    |ctx| rr_hl(ctx.cpu, ctx.memory),
+    |ctx| rr_r8(Register8::A, ctx.cpu),
+    // row 3
+    |ctx| sla_r8(Register8::B, ctx.cpu),
+    |ctx| sla_r8(Register8::C, ctx.cpu),
+    |ctx| sla_r8(Register8::D, ctx.cpu),
+    |ctx| sla_r8(Register8::E, ctx.cpu),
+    |ctx| sla_r8(Register8::H, ctx.cpu),
+    |ctx| sla_r8(Register8::L, ctx.cpu),
+    |ctx| sla_hl(ctx.cpu, ctx.memory),
+    |ctx| sla_r8(Register8::A, ctx.cpu),
+    |ctx| sra_r8(Register8::B, ctx.cpu),
+    |ctx| sra_r8(Register8::C, ctx.cpu),
+    |ctx| sra_r8(Register8::D, ctx.cpu),
+    |ctx| sra_r8(Register8::E, ctx.cpu),
+    |ctx| sra_r8(Register8::H, ctx.cpu),
+    |ctx| sra_r8(Register8::L, ctx.cpu),
+    |ctx| sra_hl(ctx.cpu, ctx.memory),
+    |ctx| sra_r8(Register8::A, ctx.cpu),
+    // row 4
+    |ctx| swap_r8(Register8::B, ctx.cpu),
+    |ctx| swap_r8(Register8::C, ctx.cpu),
+    |ctx| swap_r8(Register8::D, ctx.cpu),
+    |ctx| swap_r8(Register8::E, ctx.cpu),
+    |ctx| swap_r8(Register8::H, ctx.cpu),
+    |ctx| swap_r8(Register8::L, ctx.cpu),
+    |ctx| swap_hl(ctx.cpu, ctx.memory),
+    |ctx| swap_r8(Register8::A, ctx.cpu),
+    |ctx| srl_r8(Register8::B, ctx.cpu),
+    |ctx| srl_r8(Register8::C, ctx.cpu),
+    |ctx| srl_r8(Register8::D, ctx.cpu),
+    |ctx| srl_r8(Register8::E, ctx.cpu),
+    |ctx| srl_r8(Register8::H, ctx.cpu),
+    |ctx| srl_r8(Register8::L, ctx.cpu),
+    |ctx| srl_hl(ctx.cpu, ctx.memory),
+    |ctx| srl_r8(Register8::A, ctx.cpu),
+    // row 5
+    |ctx| bit_u3_r8(0, Register8::B, ctx.cpu),
+    |ctx| bit_u3_r8(0, Register8::C, ctx.cpu),
+    |ctx| bit_u3_r8(0, Register8::D, ctx.cpu),
+    |ctx| bit_u3_r8(0, Register8::E, ctx.cpu),
+    |ctx| bit_u3_r8(0, Register8::H, ctx.cpu),
+    |ctx| bit_u3_r8(0, Register8::L, ctx.cpu),
+    |ctx| bit_u3_hl(0, ctx.cpu, ctx.memory),
+    |ctx| bit_u3_r8(0, Register8::A, ctx.cpu),
+    |ctx| bit_u3_r8(1, Register8::B, ctx.cpu),
+    |ctx| bit_u3_r8(1, Register8::C, ctx.cpu),
+    |ctx| bit_u3_r8(1, Register8::D, ctx.cpu),
+    |ctx| bit_u3_r8(1, Register8::E, ctx.cpu),
+    |ctx| bit_u3_r8(1, Register8::H, ctx.cpu),
+    |ctx| bit_u3_r8(1, Register8::L, ctx.cpu),
+    |ctx| bit_u3_hl(1, ctx.cpu, ctx.memory),
+    |ctx| bit_u3_r8(1, Register8::A, ctx.cpu),
+    // row 6
+    |ctx| bit_u3_r8(2, Register8::B, ctx.cpu),
+    |ctx| bit_u3_r8(2, Register8::C, ctx.cpu),
+    |ctx| bit_u3_r8(2, Register8::D, ctx.cpu),
+    |ctx| bit_u3_r8(2, Register8::E, ctx.cpu),
+    |ctx| bit_u3_r8(2, Register8::H, ctx.cpu),
+    |ctx| bit_u3_r8(2, Register8::L, ctx.cpu),
+    |ctx| bit_u3_hl(2, ctx.cpu, ctx.memory),
+    |ctx| bit_u3_r8(2, Register8::A, ctx.cpu),
+    |ctx| bit_u3_r8(3, Register8::B, ctx.cpu),
+    |ctx| bit_u3_r8(3, Register8::C, ctx.cpu),
+    |ctx| bit_u3_r8(3, Register8::D, ctx.cpu),
+    |ctx| bit_u3_r8(3, Register8::E, ctx.cpu),
+    |ctx| bit_u3_r8(3, Register8::H, ctx.cpu),
+    |ctx| bit_u3_r8(3, Register8::L, ctx.cpu),
+    |ctx| bit_u3_hl(3, ctx.cpu, ctx.memory),
+    |ctx| bit_u3_r8(3, Register8::A, ctx.cpu),
+    // row 7
+    |ctx| bit_u3_r8(4, Register8::B, ctx.cpu),
+    |ctx| bit_u3_r8(4, Register8::C, ctx.cpu),
+    |ctx| bit_u3_r8(4, Register8::D, ctx.cpu),
+    |ctx| bit_u3_r8(4, Register8::E, ctx.cpu),
+    |ctx| bit_u3_r8(4, Register8::H, ctx.cpu),
+    |ctx| bit_u3_r8(4, Register8::L, ctx.cpu),
+    |ctx| bit_u3_hl(4, ctx.cpu, ctx.memory),
+    |ctx| bit_u3_r8(4, Register8::A, ctx.cpu),
+    |ctx| bit_u3_r8(5, Register8::B, ctx.cpu),
+    |ctx| bit_u3_r8(5, Register8::C, ctx.cpu),
+    |ctx| bit_u3_r8(5, Register8::D, ctx.cpu),
+    |ctx| bit_u3_r8(5, Register8::E, ctx.cpu),
+    |ctx| bit_u3_r8(5, Register8::H, ctx.cpu),
+    |ctx| bit_u3_r8(5, Register8::L, ctx.cpu),
+    |ctx| bit_u3_hl(5, ctx.cpu, ctx.memory),
+    |ctx| bit_u3_r8(5, Register8::A, ctx.cpu),
+    // row 8
+    |ctx| bit_u3_r8(6, Register8::B, ctx.cpu),
+    |ctx| bit_u3_r8(6, Register8::C, ctx.cpu),
+    |ctx| bit_u3_r8(6, Register8::D, ctx.cpu),
+    |ctx| bit_u3_r8(6, Register8::E, ctx.cpu),
+    |ctx| bit_u3_r8(6, Register8::H, ctx.cpu),
+    |ctx| bit_u3_r8(6, Register8::L, ctx.cpu),
+    |ctx| bit_u3_hl(6, ctx.cpu, ctx.memory),
+    |ctx| bit_u3_r8(6, Register8::A, ctx.cpu),
+    |ctx| bit_u3_r8(7, Register8::B, ctx.cpu),
+    |ctx| bit_u3_r8(7, Register8::C, ctx.cpu),
+    |ctx| bit_u3_r8(7, Register8::D, ctx.cpu),
+    |ctx| bit_u3_r8(7, Register8::E, ctx.cpu),
+    |ctx| bit_u3_r8(7, Register8::H, ctx.cpu),
+    |ctx| bit_u3_r8(7, Register8::L, ctx.cpu),
+    |ctx| bit_u3_hl(7, ctx.cpu, ctx.memory),
+    |ctx| bit_u3_r8(7, Register8::A, ctx.cpu),
+    // row 9
+    |ctx| res_u3_r8(0, Register8::B, ctx.cpu),
+    |ctx| res_u3_r8(0, Register8::C, ctx.cpu),
+    |ctx| res_u3_r8(0, Register8::D, ctx.cpu),
+    |ctx| res_u3_r8(0, Register8::E, ctx.cpu),
+    |ctx| res_u3_r8(0, Register8::H, ctx.cpu),
+    |ctx| res_u3_r8(0, Register8::L, ctx.cpu),
+    |ctx| res_u3_hl(0, ctx.cpu, ctx.memory),
+    |ctx| res_u3_r8(0, Register8::A, ctx.cpu),
+    |ctx| res_u3_r8(1, Register8::B, ctx.cpu),
+    |ctx| res_u3_r8(1, Register8::C, ctx.cpu),
+    |ctx| res_u3_r8(1, Register8::D, ctx.cpu),
+    |ctx| res_u3_r8(1, Register8::E, ctx.cpu),
+    |ctx| res_u3_r8(1, Register8::H, ctx.cpu),
+    |ctx| res_u3_r8(1, Register8::L, ctx.cpu),
+    |ctx| res_u3_hl(1, ctx.cpu, ctx.memory),
+    |ctx| res_u3_r8(1, Register8::A, ctx.cpu),
+    // row 10
+    |ctx| res_u3_r8(2, Register8::B, ctx.cpu),
+    |ctx| res_u3_r8(2, Register8::C, ctx.cpu),
+    |ctx| res_u3_r8(2, Register8::D, ctx.cpu),
+    |ctx| res_u3_r8(2, Register8::E, ctx.cpu),
+    |ctx| res_u3_r8(2, Register8::H, ctx.cpu),
+    |ctx| res_u3_r8(2, Register8::L, ctx.cpu),
+    |ctx| res_u3_hl(2, ctx.cpu, ctx.memory),
+    |ctx| res_u3_r8(2, Register8::A, ctx.cpu),
+    |ctx| res_u3_r8(3, Register8::B, ctx.cpu),
+    |ctx| res_u3_r8(3, Register8::C, ctx.cpu),
+    |ctx| res_u3_r8(3, Register8::D, ctx.cpu),
+    |ctx| res_u3_r8(3, Register8::E, ctx.cpu),
+    |ctx| res_u3_r8(3, Register8::H, ctx.cpu),
+    |ctx| res_u3_r8(3, Register8::L, ctx.cpu),
+    |ctx| res_u3_hl(3, ctx.cpu, ctx.memory),
+    |ctx| res_u3_r8(3, Register8::A, ctx.cpu),
+    // row 11
+    |ctx| res_u3_r8(4, Register8::B, ctx.cpu),
+    |ctx| res_u3_r8(4, Register8::C, ctx.cpu),
+    |ctx| res_u3_r8(4, Register8::D, ctx.cpu),
+    |ctx| res_u3_r8(4, Register8::E, ctx.cpu),
+    |ctx| res_u3_r8(4, Register8::H, ctx.cpu),
+    |ctx| res_u3_r8(4, Register8::L, ctx.cpu),
+    |ctx| res_u3_hl(4, ctx.cpu, ctx.memory),
+    |ctx| res_u3_r8(4, Register8::A, ctx.cpu),
+    |ctx| res_u3_r8(5, Register8::B, ctx.cpu),
+    |ctx| res_u3_r8(5, Register8::C, ctx.cpu),
+    |ctx| res_u3_r8(5, Register8::D, ctx.cpu),
+    |ctx| res_u3_r8(5, Register8::E, ctx.cpu),
+    |ctx| res_u3_r8(5, Register8::H, ctx.cpu),
+    |ctx| res_u3_r8(5, Register8::L, ctx.cpu),
+    |ctx| res_u3_hl(5, ctx.cpu, ctx.memory),
+    |ctx| res_u3_r8(5, Register8::A, ctx.cpu),
+    // row 12
+    |ctx| res_u3_r8(6, Register8::B, ctx.cpu),
+    |ctx| res_u3_r8(6, Register8::C, ctx.cpu),
+    |ctx| res_u3_r8(6, Register8::D, ctx.cpu),
+    |ctx| res_u3_r8(6, Register8::E, ctx.cpu),
+    |ctx| res_u3_r8(6, Register8::H, ctx.cpu),
+    |ctx| res_u3_r8(6, Register8::L, ctx.cpu),
+    |ctx| res_u3_hl(6, ctx.cpu, ctx.memory),
+    |ctx| res_u3_r8(6, Register8::A, ctx.cpu),
+    |ctx| res_u3_r8(7, Register8::B, ctx.cpu),
+    |ctx| res_u3_r8(7, Register8::C, ctx.cpu),
+    |ctx| res_u3_r8(7, Register8::D, ctx.cpu),
+    |ctx| res_u3_r8(7, Register8::E, ctx.cpu),
+    |ctx| res_u3_r8(7, Register8::H, ctx.cpu),
+    |ctx| res_u3_r8(7, Register8::L, ctx.cpu),
+    |ctx| res_u3_hl(7, ctx.cpu, ctx.memory),
+    |ctx| res_u3_r8(7, Register8::A, ctx.cpu),
+    // row 13
+    |ctx| set_u3_r8(0, Register8::B, ctx.cpu),
+    |ctx| set_u3_r8(0, Register8::C, ctx.cpu),
+    |ctx| set_u3_r8(0, Register8::D, ctx.cpu),
+    |ctx| set_u3_r8(0, Register8::E, ctx.cpu),
+    |ctx| set_u3_r8(0, Register8::H, ctx.cpu),
+    |ctx| set_u3_r8(0, Register8::L, ctx.cpu),
+    |ctx| set_u3_hl(0, ctx.cpu, ctx.memory),
+    |ctx| set_u3_r8(0, Register8::A, ctx.cpu),
+    |ctx| set_u3_r8(1, Register8::B, ctx.cpu),
+    |ctx| set_u3_r8(1, Register8::C, ctx.cpu),
+    |ctx| set_u3_r8(1, Register8::D, ctx.cpu),
+    |ctx| set_u3_r8(1, Register8::E, ctx.cpu),
+    |ctx| set_u3_r8(1, Register8::H, ctx.cpu),
+    |ctx| set_u3_r8(1, Register8::L, ctx.cpu),
+    |ctx| set_u3_hl(1, ctx.cpu, ctx.memory),
+    |ctx| set_u3_r8(1, Register8::A, ctx.cpu),
+    // row 14
+    |ctx| set_u3_r8(2, Register8::B, ctx.cpu),
+    |ctx| set_u3_r8(2, Register8::C, ctx.cpu),
+    |ctx| set_u3_r8(2, Register8::D, ctx.cpu),
+    |ctx| set_u3_r8(2, Register8::E, ctx.cpu),
+    |ctx| set_u3_r8(2, Register8::H, ctx.cpu),
+    |ctx| set_u3_r8(2, Register8::L, ctx.cpu),
+    |ctx| set_u3_hl(2, ctx.cpu, ctx.memory),
+    |ctx| set_u3_r8(2, Register8::A, ctx.cpu),
+    |ctx| set_u3_r8(3, Register8::B, ctx.cpu),
+    |ctx| set_u3_r8(3, Register8::C, ctx.cpu),
+    |ctx| set_u3_r8(3, Register8::D, ctx.cpu),
+    |ctx| set_u3_r8(3, Register8::E, ctx.cpu),
+    |ctx| set_u3_r8(3, Register8::H, ctx.cpu),
+    |ctx| set_u3_r8(3, Register8::L, ctx.cpu),
+    |ctx| set_u3_hl(3, ctx.cpu, ctx.memory),
+    |ctx| set_u3_r8(3, Register8::A, ctx.cpu),
+    // row 15
+    |ctx| set_u3_r8(4, Register8::B, ctx.cpu),
+    |ctx| set_u3_r8(4, Register8::C, ctx.cpu),
+    |ctx| set_u3_r8(4, Register8::D, ctx.cpu),
+    |ctx| set_u3_r8(4, Register8::E, ctx.cpu),
+    |ctx| set_u3_r8(4, Register8::H, ctx.cpu),
+    |ctx| set_u3_r8(4, Register8::L, ctx.cpu),
+    |ctx| set_u3_hl(4, ctx.cpu, ctx.memory),
+    |ctx| set_u3_r8(4, Register8::A, ctx.cpu),
+    |ctx| set_u3_r8(5, Register8::B, ctx.cpu),
+    |ctx| set_u3_r8(5, Register8::C, ctx.cpu),
+    |ctx| set_u3_r8(5, Register8::D, ctx.cpu),
+    |ctx| set_u3_r8(5, Register8::E, ctx.cpu),
+    |ctx| set_u3_r8(5, Register8::H, ctx.cpu),
+    |ctx| set_u3_r8(5, Register8::L, ctx.cpu),
+    |ctx| set_u3_hl(5, ctx.cpu, ctx.memory),
+    |ctx| set_u3_r8(5, Register8::A, ctx.cpu),
+    // row 16
+    |ctx| set_u3_r8(6, Register8::B, ctx.cpu),
+    |ctx| set_u3_r8(6, Register8::C, ctx.cpu),
+    |ctx| set_u3_r8(6, Register8::D, ctx.cpu),
+    |ctx| set_u3_r8(6, Register8::E, ctx.cpu),
+    |ctx| set_u3_r8(6, Register8::H, ctx.cpu),
+    |ctx| set_u3_r8(6, Register8::L, ctx.cpu),
+    |ctx| set_u3_hl(6, ctx.cpu, ctx.memory),
+    |ctx| set_u3_r8(6, Register8::A, ctx.cpu),
+    |ctx| set_u3_r8(7, Register8::B, ctx.cpu),
+    |ctx| set_u3_r8(7, Register8::C, ctx.cpu),
+    |ctx| set_u3_r8(7, Register8::D, ctx.cpu),
+    |ctx| set_u3_r8(7, Register8::E, ctx.cpu),
+    |ctx| set_u3_r8(7, Register8::H, ctx.cpu),
+    |ctx| set_u3_r8(7, Register8::L, ctx.cpu),
+    |ctx| set_u3_hl(7, ctx.cpu, ctx.memory),
+    |ctx| set_u3_r8(7, Register8::A, ctx.cpu),
 ];

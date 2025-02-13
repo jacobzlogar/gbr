@@ -31,6 +31,7 @@ impl System {
             // 4 cpu cycles per clock
             if self.clock.cpu_cycles >= CPU_CYCLES_PER_CLOCK {
                 self.clock.cpu_cycles = 0;
+                let _ = self.cpu.execute(&mut self.mem);
                 //self.clock.cpu_cycles += self.cpu.execute(&mut self.mem.block).unwrap() as u64;
             }
             // 114 ppu cycles per clock, i need to figure out where i read this number

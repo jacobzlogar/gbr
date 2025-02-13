@@ -74,6 +74,19 @@ pub mod regions {
     pub const INTERRUPT_ENABLE_REGISTER: usize = 0xffff;
 }
 
+pub mod io_ranges {
+    pub const JOYPAD_INPUT: usize = 0xff00;
+    pub const SERIAL_TRANSFER_START: usize = 0xff01;
+    pub const SERIAL_TRANSFER_END: usize = 0xff02;
+    pub const TIMER_DIVIDER_START: usize = 0xff04;
+    pub const TIMER_DIVIDER_END: usize = 0xff07;
+    pub const INTERRUPTS: usize = 0xff0f;
+    pub const AUDIO_START: usize = 0xff10;
+    pub const AUDIO_END: usize = 0xff26;
+    pub const WAVE_PATTERN_START: usize = 0xff30;
+    pub const WAVE_PATTERN_END: usize = 0xff3f;
+}
+
 pub struct MemoryMap {
     // (* 8 65536) == ~.5mb so i guess it's not that bad
     pub block: [u8; 65536],
