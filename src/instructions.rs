@@ -7,7 +7,7 @@ use arithmetic_8bit::{
 use arithmetic_16bit::{add_r16_hl, dec_r16, inc_r16};
 use bitflag::{bit_u3_hl, bit_u3_r8, res_u3_hl, res_u3_r8, set_u3_hl, set_u3_r8};
 use bitshift::{rl_hl, rl_r8, rla, rlc_hl, rlc_r8, rlca, rr_hl, rr_r8, rra, rrc_hl, rrc_r8, rrca, sla_hl, sla_r8, sra_hl, sra_r8, srl_hl, srl_r8, swap_hl, swap_r8};
-use bitwise::{and_a_immed_hl, and_a_n8, and_a_r8, or_a_hl, or_a_n8, or_a_r8, xor_a_immed_hl, xor_a_n8, xor_a_r8};
+use bitwise::{and_a_immed_hl, and_a_n8, and_a_r8, cpl, or_a_hl, or_a_n8, or_a_r8, xor_a_immed_hl, xor_a_n8, xor_a_r8};
 use carry::{ccf, scf};
 use interrupts::{di, ei, halt};
 use jumps::{call_cc_n16, call_n16, jp_cc_n16, jp_hl, jp_n16, jr_cc_n16, jr_n16, ret, ret_cc, reti, rst};
@@ -121,7 +121,7 @@ pub const INSTRUCTION_SET: [InstructionFn; 256] = [
     |ctx| inc_r8(Register8::E, ctx.cpu),
     |ctx| dec_r8(Register8::E, ctx.cpu),
     |ctx| load_r8_n8(Register8::E, get_u8(ctx.iter)?, ctx.cpu),
-    |ctx| rra(ctx.cpu),
+    |ctx| cpl(ctx.cpu),
     // row 4
     |ctx| jr_cc_n16(get_u16(ctx.iter)?, Condition::NotCarry, ctx.cpu),
     |ctx| load_sp_n16(get_u16(ctx.iter)?, ctx.cpu),
