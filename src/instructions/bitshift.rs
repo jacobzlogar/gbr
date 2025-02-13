@@ -27,10 +27,7 @@ pub fn rl_r8(r8: Register8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
 
 /// RL [HL]
 /// Rotate the byte pointed to by HL left, through the carry flag.
-pub fn rl_hl(
-    cpu: &mut Cpu,
-    mem: &mut MemoryMap
-) -> InstructionResult<Instruction> {
+pub fn rl_hl(cpu: &mut Cpu, mem: &mut MemoryMap) -> InstructionResult<Instruction> {
     let hl = cpu.registers[Register16::HL];
     let byte = mem.read(hl as usize);
     let new_carry = (byte >> 7) & 1;
@@ -70,7 +67,7 @@ pub fn rla(cpu: &mut Cpu) -> InstructionResult<Instruction> {
 /// MSB of r8 becomes carry flag
 /// MSB becomes LSB of r8
 /// the rest of the bits in r8 are shifted left
-/// 
+///
 /// ┏━ Flags ━┓   ┏━━━━━━━ r8 ━━━━━━┓
 /// ┃    C  ←╂─┬─╂─ b7 ← ... ← b0←╂
 /// ┗━━━━━━━━━┛ │ ┗━━━━━━━━━━━━━━━━━┛ │
@@ -147,7 +144,7 @@ pub fn rlca(cpu: &mut Cpu) -> InstructionResult<Instruction> {
 }
 
 /// Rotate register r8 right, through the carry flag.
-/// 
+///
 ///   ┏━━━━━━━ r8 ━━━━━━┓ ┏━ Flags ━┓
 /// ┌─╂→ b7 .... → b0─╂─╂→   C  ─╂─┐
 /// │ ┗━━━━━━━━━━━━━━━━━┛ ┗━━━━━━━━━┛ │
@@ -178,7 +175,7 @@ pub fn rr_r8(r8: Register8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
 /// Flags are updated the same way as RR, R8
 pub fn rr_hl(cpu: &mut Cpu, mem: &mut MemoryMap) -> InstructionResult<Instruction> {
     let hl = cpu.registers[Register16::HL];
-    let mut  byte = mem.read(hl as usize);
+    let mut byte = mem.read(hl as usize);
     let carry = cpu.flags.carry as u8;
     let lsb = byte & 1;
     byte >>= 1;
@@ -337,12 +334,11 @@ pub fn swap_hl(cpu: &mut Cpu, mem: &mut MemoryMap) -> InstructionResult<Instruct
     })
 }
 
-
 mod tests {
     use cpu::Flags;
 
-    use crate::*;
     use super::*;
+    use crate::*;
 
     #[test]
     fn test_rl_r8() {
@@ -350,7 +346,12 @@ mod tests {
         cpu.set_r8(Register8::B, 254);
         rl_r8(Register8::B, &mut cpu).unwrap();
         assert_eq!(cpu.get_r8(Register8::B), 0xfd);
-        assert_eq!(cpu.flags, Flags { zero: false, subtraction: false, half_carry: false, carry: true });
+        assert_eq!(cpu.flags, Flags {
+            zero: false,
+            subtraction: false,
+            half_carry: false,
+            carry: true
+        });
     }
 
     #[test]
@@ -362,7 +363,12 @@ mod tests {
         mem.write(hl as usize, 0xfe);
         rl_hl(&mut cpu, &mut mem).unwrap();
         assert_eq!(mem.read(hl as usize), 0xfd);
-        assert_eq!(cpu.flags, Flags { zero: false, subtraction: false, half_carry: false, carry: true });
+        assert_eq!(cpu.flags, Flags {
+            zero: false,
+            subtraction: false,
+            half_carry: false,
+            carry: true
+        });
     }
 
     #[test]
@@ -371,7 +377,12 @@ mod tests {
         cpu.set_r8(Register8::A, 254);
         rla(&mut cpu).unwrap();
         assert_eq!(cpu.get_r8(Register8::A), 0xfd);
-        assert_eq!(cpu.flags, Flags { zero: false, subtraction: false, half_carry: false, carry: true });
+        assert_eq!(cpu.flags, Flags {
+            zero: false,
+            subtraction: false,
+            half_carry: false,
+            carry: true
+        });
     }
 
     #[test]
@@ -380,7 +391,12 @@ mod tests {
         cpu.set_r8(Register8::B, 0x7f);
         rlc_r8(Register8::B, &mut cpu).unwrap();
         assert_eq!(cpu.get_r8(Register8::B), 0xfe);
-        assert_eq!(cpu.flags, Flags { zero: false, subtraction: false, half_carry: false, carry: false });
+        assert_eq!(cpu.flags, Flags {
+            zero: false,
+            subtraction: false,
+            half_carry: false,
+            carry: false
+        });
     }
 
     #[test]
@@ -393,13 +409,23 @@ mod tests {
         rlc_hl(&mut cpu, &mut mem).unwrap();
         let byte = mem.read(hl as usize);
         assert_eq!(byte, 0xfe);
-        assert_eq!(cpu.flags, Flags { zero: false, subtraction: false, half_carry: false, carry: false });
+        assert_eq!(cpu.flags, Flags {
+            zero: false,
+            subtraction: false,
+            half_carry: false,
+            carry: false
+        });
 
         mem.write(hl as usize, 0xff);
         rlc_hl(&mut cpu, &mut mem).unwrap();
         let byte = mem.read(hl as usize);
         assert_eq!(byte, 0xff);
-        assert_eq!(cpu.flags, Flags { zero: false, subtraction: false, half_carry: false, carry: true });
+        assert_eq!(cpu.flags, Flags {
+            zero: false,
+            subtraction: false,
+            half_carry: false,
+            carry: true
+        });
     }
 
     #[test]
@@ -408,16 +434,26 @@ mod tests {
         cpu.set_r8(Register8::A, 0x7f);
         rlca(&mut cpu).unwrap();
         assert_eq!(cpu.get_r8(Register8::A), 0xfe);
-        assert_eq!(cpu.flags, Flags { zero: false, subtraction: false, half_carry: false, carry: false });
+        assert_eq!(cpu.flags, Flags {
+            zero: false,
+            subtraction: false,
+            half_carry: false,
+            carry: false
+        });
     }
 
     #[test]
     fn test_rr_r8() {
         let mut cpu = Cpu::new(vec![]);
         cpu.set_r8(Register8::B, 0x3f);
-        rr_r8(&mut cpu, Register8::B).unwrap();
+        rr_r8(Register8::B, &mut cpu).unwrap();
         assert_eq!(cpu.get_r8(Register8::B), 0x9f);
-        assert_eq!(cpu.flags, Flags { zero: false, subtraction: false, half_carry: false, carry: true });
+        assert_eq!(cpu.flags, Flags {
+            zero: false,
+            subtraction: false,
+            half_carry: false,
+            carry: true
+        });
     }
 
     #[test]
@@ -430,7 +466,12 @@ mod tests {
         rr_hl(&mut cpu, &mut mem).unwrap();
         let byte = mem.read(hl as usize);
         assert_eq!(byte, 0x9f);
-        assert_eq!(cpu.flags, Flags { zero: false, subtraction: false, half_carry: false, carry: true });
+        assert_eq!(cpu.flags, Flags {
+            zero: false,
+            subtraction: false,
+            half_carry: false,
+            carry: true
+        });
     }
 
     #[test]
@@ -439,6 +480,11 @@ mod tests {
         cpu.set_r8(Register8::A, 0x3f);
         rra(&mut cpu).unwrap();
         assert_eq!(cpu.get_r8(Register8::A), 0x9f);
-        assert_eq!(cpu.flags, Flags { zero: false, subtraction: false, half_carry: false, carry: true });
+        assert_eq!(cpu.flags, Flags {
+            zero: false,
+            subtraction: false,
+            half_carry: false,
+            carry: true
+        });
     }
 }

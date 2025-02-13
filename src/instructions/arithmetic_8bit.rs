@@ -342,17 +342,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_adc_a_r8() {
-    }
+    fn test_adc_a_r8() {}
 
     #[test]
-    fn test_sbc_a_r8() {
-    }
+    fn test_sbc_a_r8() {}
     #[test]
-    fn test_cp_a_to_r8() {
-    }
+    fn test_cp_a_to_r8() {}
 
     #[test]
-    fn test_dec_r8() {
-    }
+    fn test_dec_r8() {}
 }

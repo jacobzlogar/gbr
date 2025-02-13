@@ -1,6 +1,6 @@
 use std::ops::{Index, IndexMut};
 
-use crate::{errors::CpuError, instructions::INSTRUCTION_SET, memory::MemoryMap, DecodeContext};
+use crate::{DecodeContext, errors::CpuError, instructions::INSTRUCTION_SET, memory::MemoryMap};
 
 /// Represents the AF, BC, DE, HL CPU registers of the Game Boy
 /// `SP` and `PC` are fields of the `Cpu` struct
@@ -132,9 +132,11 @@ impl Cpu {
         let instruction_stream = &self.instruction_stream.clone();
         let mut iter = instruction_stream[self.program_counter..].iter();
         let opcode_byte = iter.next().ok_or(CpuError::MissingOpcodeByte)?;
-        if let Ok(instruction) =
-            INSTRUCTION_SET[*opcode_byte as usize](&mut DecodeContext { iter: &mut iter, cpu: self, memory })
-        {
+        if let Ok(instruction) = INSTRUCTION_SET[*opcode_byte as usize](&mut DecodeContext {
+            iter: &mut iter,
+            cpu: self,
+            memory,
+        }) {
             // increment the PC based on the number of bytes consumed by this instruction
             println!("{:?}", instruction);
             self.program_counter += instruction.bytes as usize;
@@ -152,7 +154,7 @@ pub struct Flags {
     pub zero: bool,
     pub subtraction: bool,
     pub half_carry: bool,
-    pub carry: bool
+    pub carry: bool,
 }
 
 impl Flags {
@@ -177,7 +179,7 @@ impl Default for Flags {
             zero: true,
             subtraction: false,
             half_carry: true,
-            carry: true
+            carry: true,
         }
     }
 }

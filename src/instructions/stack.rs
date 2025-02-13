@@ -4,7 +4,10 @@ use crate::{
     memory::MemoryMap,
 };
 
-use super::{arithmetic_16bit::{add_16bit, Arith16Bit}, Instruction, InstructionResult};
+use super::{
+    Instruction, InstructionResult,
+    arithmetic_16bit::{Arith16Bit, add_16bit},
+};
 
 /// ADD HL, SP
 /// Add the value in SP to HL

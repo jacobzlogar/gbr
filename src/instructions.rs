@@ -1,24 +1,38 @@
-use arithmetic_8bit::{cp_a_hl, cp_a_n8, cp_a_r8, sbc_a_n8, sub_a_n8};
-#[allow(dead_code, unused_imports)]
 use arithmetic_8bit::{
     adc_a_immed_hl, adc_a_n8, adc_a_r8, add_a_immed_hl, add_a_n8, add_a_r8, dec_hl, dec_r8, inc_hl,
     inc_r8, sbc_a_immed_hl, sbc_a_r8, sub_a_immed_hl, sub_a_r8,
 };
+use arithmetic_8bit::{cp_a_hl, cp_a_n8, cp_a_r8, sbc_a_n8, sub_a_n8};
 use arithmetic_16bit::{add_r16_hl, dec_r16, inc_r16};
 use bitflag::{bit_u3_hl, bit_u3_r8, res_u3_hl, res_u3_r8, set_u3_hl, set_u3_r8};
-use bitshift::{rl_hl, rl_r8, rla, rlc_hl, rlc_r8, rlca, rr_hl, rr_r8, rra, rrc_hl, rrc_r8, rrca, sla_hl, sla_r8, sra_hl, sra_r8, srl_hl, srl_r8, swap_hl, swap_r8};
-use bitwise::{and_a_immed_hl, and_a_n8, and_a_r8, cpl, or_a_hl, or_a_n8, or_a_r8, xor_a_immed_hl, xor_a_n8, xor_a_r8};
+use bitshift::{
+    rl_hl, rl_r8, rla, rlc_hl, rlc_r8, rlca, rr_hl, rr_r8, rra, rrc_hl, rrc_r8, rrca, sla_hl,
+    sla_r8, sra_hl, sra_r8, srl_hl, srl_r8, swap_hl, swap_r8,
+};
+use bitwise::{
+    and_a_immed_hl, and_a_n8, and_a_r8, cpl, or_a_hl, or_a_n8, or_a_r8, xor_a_immed_hl, xor_a_n8,
+    xor_a_r8,
+};
 use carry::{ccf, scf};
 use interrupts::{di, ei, halt};
-use jumps::{call_cc_n16, call_n16, jp_cc_n16, jp_hl, jp_n16, jr_cc_n16, jr_n16, ret, ret_cc, reti, rst};
+use jumps::{
+    call_cc_n16, call_n16, jp_cc_n16, jp_hl, jp_n16, jr_cc_n16, jr_n16, ret, ret_cc, reti, rst,
+};
 use load::{
-    load_a_hli, load_a_immed_n16, load_hl_r8, load_hld_a, load_hli_a, load_immed_r16_a, load_n8_hl, load_r16_n16, load_r8_hl, load_r8_n8, load_r8_r8, loadh_a_c, loadh_a_immed_n16, loadh_immed_n16_a
+    load_a_hli, load_a_immed_n16, load_hl_r8, load_hld_a, load_hli_a, load_immed_r16_a, load_n8_hl,
+    load_r8_hl, load_r8_n8, load_r8_r8, load_r16_n16, loadh_a_c, loadh_a_immed_n16,
+    loadh_immed_n16_a,
 };
 use misc::{daa, nop, stop};
-use stack::{add_hl_sp, add_sp_e8, dec_sp, inc_sp, load_a16_sp, load_hl_sp_e8, load_sp_hl, load_sp_n16, pop_af, pop_r16, push_af, push_r16};
+use stack::{
+    add_hl_sp, add_sp_e8, dec_sp, inc_sp, load_a16_sp, load_hl_sp_e8, load_sp_hl, load_sp_n16,
+    pop_af, pop_r16, push_af, push_r16,
+};
 
 use crate::{
-    cpu::{Register16, Register8}, errors::DecodeError, InstructionFn, Mnemonic
+    InstructionFn, Mnemonic,
+    cpu::{Register8, Register16},
+    errors::DecodeError,
 };
 
 pub mod arithmetic_16bit;
@@ -321,9 +335,9 @@ pub const INSTRUCTION_SET: [InstructionFn; 256] = [
     |ctx| add_sp_e8(get_u8(ctx.iter)?, ctx.cpu),
     |ctx| jp_hl(ctx.cpu, ctx.memory),
     |ctx| load_a_immed_n16(get_u16(ctx.iter)?, ctx.cpu, ctx.memory),
-    |_| Err(DecodeError::InvalidOpcodeByte(0xeb)), 
-    |_| Err(DecodeError::InvalidOpcodeByte(0xec)), 
-    |_| Err(DecodeError::InvalidOpcodeByte(0xed)), 
+    |_| Err(DecodeError::InvalidOpcodeByte(0xeb)),
+    |_| Err(DecodeError::InvalidOpcodeByte(0xec)),
+    |_| Err(DecodeError::InvalidOpcodeByte(0xed)),
     |ctx| xor_a_n8(get_u8(ctx.iter)?, ctx.cpu),
     |ctx| rst(0x28, ctx.cpu),
     // row 16
