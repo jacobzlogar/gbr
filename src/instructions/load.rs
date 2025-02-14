@@ -112,6 +112,22 @@ pub fn load_a_immed_r16(
     })
 }
 
+/// LD A, [n16]
+/// Copy the byte at address n16 into register A.
+pub fn load_immed_n16_a(
+    n16: u16,
+    cpu: &mut Cpu,
+    mem: &mut MemoryMap,
+) -> InstructionResult<Instruction> {
+    let byte = mem.read(n16 as usize);
+    cpu.set_r8(Register8::A, byte);
+    Ok(Instruction {
+        mnemonic: Mnemonic::LD,
+        bytes: 3,
+        cycles: 4,
+    })
+}
+
 /// LD [n16], A
 /// Copy the value in register A into the byte at address n16.
 pub fn load_a_immed_n16(
@@ -130,16 +146,16 @@ pub fn load_a_immed_n16(
 
 /// LDH A, [n16]
 /// Copy the byte at address n16 into register A, provided the address is between $FF00 and $FFFF.
-/// TODO: fix this
 pub fn loadh_a_immed_n16(
     n16: u16,
     cpu: &mut Cpu,
     mem: &mut MemoryMap,
 ) -> InstructionResult<Instruction> {
     let byte = mem.read(n16 as usize);
-    // if byte >= 0xff00 && byte <= 0xffff {
-    //     cpu.set_r8(Register8::A, byte);
-    // }
+    println!("{byte:08b}");
+    if (0xff00..=0xfff).contains(&n16) {
+        cpu.set_r8(Register8::A, byte);
+    }
     Ok(Instruction {
         mnemonic: Mnemonic::LDH,
         bytes: 2,
@@ -149,16 +165,15 @@ pub fn loadh_a_immed_n16(
 
 /// LDH [n16], A
 /// Copy the value in register A into the byte at address n16, provided the address is between $FF00 and $FFFF.
-/// TODO: fix this
 pub fn loadh_immed_n16_a(
     n16: u16,
     cpu: &mut Cpu,
     mem: &mut MemoryMap,
 ) -> InstructionResult<Instruction> {
-    let byte = mem.read(n16 as usize);
-    // if byte >= 0xff00 && byte <= 0xffff {
-    //     cpu.set_r8(Register8::A, byte);
-    // }
+    let a = cpu.get_r8(Register8::A);
+    if (0xff00..=0xfff).contains(&n16) {
+        mem.write(n16 as usize, a);
+    }
     Ok(Instruction {
         mnemonic: Mnemonic::LDH,
         bytes: 2,
@@ -166,9 +181,23 @@ pub fn loadh_immed_n16_a(
     })
 }
 
+/// LDH A, [C]
+/// Copy the byte at address $FF00+C into register A.
+pub fn loadh_a_c(cpu: &mut Cpu, mem: &mut MemoryMap) -> InstructionResult<Instruction> {
+    println!("hello?");
+    let c = cpu.get_r8(Register8::C);
+    let byte = mem.read(0xff00 + c as usize);
+    cpu.set_r8(Register8::A, byte);
+    Ok(Instruction {
+        mnemonic: Mnemonic::LDH,
+        bytes: 1,
+        cycles: 2,
+    })
+}
+
 /// LDH [C],A
 /// Copy the value in register A into the byte at address $FF00+C.
-pub fn loadh_a_c(cpu: &mut Cpu, mem: &mut MemoryMap) -> InstructionResult<Instruction> {
+pub fn loadh_c_a(cpu: &mut Cpu, mem: &mut MemoryMap) -> InstructionResult<Instruction> {
     let a = cpu.get_r8(Register8::A);
     let c = cpu.get_r8(Register8::C);
     mem.write(0xff00 + c as usize, a);

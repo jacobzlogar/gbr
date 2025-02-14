@@ -19,9 +19,7 @@ use jumps::{
     call_cc_n16, call_n16, jp_cc_n16, jp_hl, jp_n16, jr_cc_n16, jr_n16, ret, ret_cc, reti, rst,
 };
 use load::{
-    load_a_hli, load_a_immed_n16, load_hl_r8, load_hld_a, load_hli_a, load_immed_r16_a, load_n8_hl,
-    load_r8_hl, load_r8_n8, load_r8_r8, load_r16_n16, loadh_a_c, loadh_a_immed_n16,
-    loadh_immed_n16_a,
+    load_a_hli, load_a_immed_n16, load_hl_r8, load_hld_a, load_hli_a, load_immed_n16_a, load_immed_r16_a, load_n8_hl, load_r16_n16, load_r8_hl, load_r8_n8, load_r8_r8, loadh_a_c, loadh_a_immed_n16, loadh_c_a, loadh_immed_n16_a
 };
 use misc::{daa, nop, stop};
 use stack::{
@@ -103,7 +101,7 @@ pub const INSTRUCTION_SET: [InstructionFn; 256] = [
     |ctx| load_r8_n8(Register8::C, get_u8(ctx.iter)?, ctx.cpu),
     |ctx| rrca(ctx.cpu),
     // row 2
-    |_| stop(),
+    |ctx| stop(ctx.memory),
     |ctx| load_r16_n16(Register16::DE, get_u16(ctx.iter)?, ctx.cpu),
     |ctx| load_immed_r16_a(Register16::DE, ctx.cpu, ctx.memory),
     |ctx| inc_r16(Register16::DE, ctx.cpu),
@@ -343,7 +341,7 @@ pub const INSTRUCTION_SET: [InstructionFn; 256] = [
     // row 16
     |ctx| loadh_immed_n16_a(get_u16(ctx.iter)?, ctx.cpu, ctx.memory),
     |ctx| pop_af(ctx.cpu),
-    |ctx| loadh_a_c(ctx.cpu, ctx.memory),
+    |ctx| loadh_c_a(ctx.cpu, ctx.memory),
     |ctx| di(ctx.cpu),
     |_| Err(DecodeError::InvalidOpcodeByte(0xf4)),
     |ctx| push_af(ctx.cpu),
@@ -351,7 +349,7 @@ pub const INSTRUCTION_SET: [InstructionFn; 256] = [
     |ctx| rst(0x30, ctx.cpu), // TODO: fix this
     |ctx| load_hl_sp_e8(get_i8(ctx.iter)?, ctx.cpu),
     |ctx| load_sp_hl(ctx.cpu),
-    |ctx| load_a_immed_n16(get_u16(ctx.iter)?, ctx.cpu, ctx.memory),
+    |ctx| load_immed_n16_a(get_u16(ctx.iter)?, ctx.cpu, ctx.memory),
     |ctx| ei(ctx.cpu),
     |_| Err(DecodeError::InvalidOpcodeByte(0xfc)),
     |_| Err(DecodeError::InvalidOpcodeByte(0xfd)),

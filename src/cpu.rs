@@ -1,6 +1,6 @@
 use std::ops::{Index, IndexMut};
 
-use crate::{DecodeContext, errors::CpuError, instructions::INSTRUCTION_SET, memory::MemoryMap};
+use crate::{errors::CpuError, instructions::INSTRUCTION_SET, memory::MemoryMap, DecodeContext, Mnemonic};
 
 /// Represents the AF, BC, DE, HL CPU registers of the Game Boy
 /// `SP` and `PC` are fields of the `Cpu` struct
@@ -46,6 +46,7 @@ pub enum Flag {
     C,
 }
 
+#[derive(Debug)]
 pub struct Cpu {
     pub stack: Vec<u16>,
     instruction_stream: Vec<u8>,
@@ -65,16 +66,16 @@ impl Cpu {
             registers: [0u16; 4],
             flags: Flags::default(),
             ime: false,
-            stack_pointer: 0,
-            program_counter: 0,
+            stack_pointer: 0xfffe,
+            program_counter: 0x0100,
         }
     }
     /// https://gbdev.io/pandocs/Power_Up_Sequence.html#cpu-registers
     pub fn inititalize_registers(&mut self) {
-        self.registers[Register16::AF] = 0x180;
-        self.registers[Register16::BC] = 0x13;
-        self.registers[Register16::DE] = 0xd8;
-        self.registers[Register16::HL] = 0x14d;
+        self.registers[Register16::AF] = 0x1b0;
+        self.registers[Register16::BC] = 0x0013;
+        self.registers[Register16::DE] = 0x00d8;
+        self.registers[Register16::HL] = 0x014d;
     }
 
     pub fn set_r16(&mut self, register: Register16, n16: u16) {
@@ -132,16 +133,13 @@ impl Cpu {
         let instruction_stream = &self.instruction_stream.clone();
         let mut iter = instruction_stream[self.program_counter..].iter();
         let opcode_byte = iter.next().ok_or(CpuError::MissingOpcodeByte)?;
-        if let Ok(instruction) = INSTRUCTION_SET[*opcode_byte as usize](&mut DecodeContext {
-            iter: &mut iter,
-            cpu: self,
-            memory,
-        }) {
-            // increment the PC based on the number of bytes consumed by this instruction
-            println!("{:?}", instruction);
+        let mut ctx = DecodeContext { iter: &mut iter, cpu: self, memory };
+        if let Ok(instruction) = INSTRUCTION_SET[*opcode_byte as usize](&mut ctx) {
             self.program_counter += instruction.bytes as usize;
+            println!("{:?}", memory.timer_control());
             match instruction.mnemonic {
-                _ => (),
+                _ =>(),
+                // _ => println!("{:?} registers: {:?} flags: {:?} SP: {:?} PC: {:0x}", instruction, self.registers, self.flags, self.stack_pointer, self.program_counter)
             };
             return Ok(instruction.cycles);
         }
@@ -194,3 +192,4 @@ impl Into<u8> for Flags {
         flags
     }
 }
+HI

@@ -27,8 +27,8 @@ TODO:
 - [x] create prefix table for bitwise ops dispatched from 0xcb
 
 - instructions i need to finish:
-  - [ ] bitshift instructions
-  - [ ] loadh immed -> a
+  - [x] bitshift instructions
+  - [x] loadh immed -> a
   - [ ] jump/subroutine instructions
   - [x] carry flag instructions
   - [ ] stack manipulation instructions

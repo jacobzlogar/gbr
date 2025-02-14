@@ -128,6 +128,60 @@ impl Default for MemoryMap {
     }
 }
 
+#[derive(Debug)]
+pub enum TimerFreq {
+    First(u32, u32, u32, u32),
+    Second(u32, u32, u32, u32),
+    Third(u32, u32, u32, u32),
+    Fourth(u32, u32, u32, u32),
+}
+
+#[derive(Debug)]
+pub struct TimerControl {
+    enable: bool,
+    clock_select: TimerFreq
+}
+
+impl From<u8> for TimerControl {
+    fn from(value: u8) -> Self {
+        let freq = value & 0x03;
+        let freq = match freq {
+            0 => TimerFreq::First(256, 4096, 4194, 8192),
+            1 => TimerFreq::Second(4, 262144, 268400, 524288),
+            2 => TimerFreq::Third(16, 65536, 67110, 131072),
+            _ => TimerFreq::First(64, 16384, 16780, 32768),
+        };
+        Self {
+            enable: value & 0x04 != 0,
+            clock_select: freq
+        }
+    }
+}
+
+
+#[derive(Debug)]
+pub struct LcdStatus {
+    lyc_int_select: bool,
+    mode_2_int_select: bool,
+    mode_1_int_select: bool,
+    mode_0_int_select: bool,
+    lyu_lc: bool,
+    ppu_mode: bool
+}
+
+impl From<u8> for LcdStatus {
+    fn from(value: u8) -> Self {
+        Self {
+            lyc_int_select: value & 0x40 != 0,
+            mode_2_int_select: value & 0x20 != 0,
+            mode_1_int_select: value & 0x10 != 0,
+            mode_0_int_select: value & 0x08 != 0,
+            lyu_lc: value & 0x04 != 0,
+            ppu_mode: value & 0x03 != 0,
+        }
+    }
+}
+
 impl MemoryMap {
     pub fn read(&mut self, addr: usize) -> u8 {
         self.block[addr]
@@ -135,6 +189,18 @@ impl MemoryMap {
 
     pub fn write(&mut self, addr: usize, value: u8) {
         self.block[addr] = value;
+    }
+
+    pub fn lcd_status(&self) -> LcdStatus {
+        LcdStatus::from(self.block[STAT])
+    }
+
+    pub fn timer_control(&self) -> TimerControl {
+        TimerControl::from(self.block[TAC])
+    }
+
+    pub fn inc_div(&mut self) {
+        self.block[DIV] += 1;
     }
     // im not sure i'll actually end up using any of these, lol
     pub fn get_rom_bank_0(&self) -> &[u8] {

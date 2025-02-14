@@ -1,4 +1,4 @@
-use crate::{Mnemonic, cpu::Cpu, memory::MemoryMap};
+use crate::{cpu::{Cpu, Register16}, memory::MemoryMap, Mnemonic};
 
 use super::{Condition, Instruction, InstructionResult};
 
@@ -21,6 +21,15 @@ pub fn call_cc_n16(
     condition: Condition,
     cpu: &mut Cpu,
 ) -> InstructionResult<Instruction> {
+    let cc = match condition {
+        Condition::NotZero => cpu.flags.zero == false,
+        Condition::Zero => cpu.flags.zero == true,
+        Condition::NotCarry => cpu.flags.carry == false,
+        Condition::Carry => cpu.flags.carry == true,
+    };
+    if cc {
+        cpu.stack.push(n16);
+    }
     Ok(Instruction {
         mnemonic: Mnemonic::CALL,
         bytes: 3,
@@ -31,6 +40,9 @@ pub fn call_cc_n16(
 /// JP HL
 /// Jump to address in HL; effectively, copy the value in register HL into PC.
 pub fn jp_hl(cpu: &mut Cpu, mem: &mut MemoryMap) -> InstructionResult<Instruction> {
+    let hl = cpu.registers[Register16::HL];
+    let addr = mem.read(hl as usize);
+    cpu.program_counter = addr as usize;
     Ok(Instruction {
         mnemonic: Mnemonic::JP,
         bytes: 1,
@@ -41,6 +53,7 @@ pub fn jp_hl(cpu: &mut Cpu, mem: &mut MemoryMap) -> InstructionResult<Instructio
 /// JP n16
 /// Jump to address n16; effectively, copy n16 into PC.
 pub fn jp_n16(n16: u16, cpu: &mut Cpu) -> InstructionResult<Instruction> {
+    cpu.program_counter = n16 as usize;
     Ok(Instruction {
         mnemonic: Mnemonic::JP,
         bytes: 3,
@@ -51,6 +64,15 @@ pub fn jp_n16(n16: u16, cpu: &mut Cpu) -> InstructionResult<Instruction> {
 /// JP cc, n16
 /// Jump to address n16 if condition cc is met.
 pub fn jp_cc_n16(n16: u16, condition: Condition, cpu: &mut Cpu) -> InstructionResult<Instruction> {
+    let cc = match condition {
+        Condition::NotZero => cpu.flags.zero == false,
+        Condition::Zero => cpu.flags.zero == true,
+        Condition::NotCarry => cpu.flags.carry == false,
+        Condition::Carry => cpu.flags.carry == true,
+    };
+    if cc {
+        cpu.program_counter = n16 as usize;
+    }
     Ok(Instruction {
         mnemonic: Mnemonic::JP,
         bytes: 1,
@@ -114,6 +136,7 @@ pub fn reti(cpu: &mut Cpu) -> InstructionResult<Instruction> {
 /// RST vec
 /// Call address vec. This is a shorter and faster equivalent to CALL for suitable values of vec.
 pub fn rst(vec: u16, cpu: &mut Cpu) -> InstructionResult<Instruction> {
+    cpu.program_counter = vec as usize;
     Ok(Instruction {
         mnemonic: Mnemonic::RST,
         bytes: 1,
