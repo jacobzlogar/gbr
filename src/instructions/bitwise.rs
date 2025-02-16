@@ -1,7 +1,7 @@
 use crate::{
     Mnemonic,
-    cpu::{Cpu, Register8, Register16},
-    memory::MemoryMap,
+    cpu::{Cpu, R8, R16},
+    memory::Memory,
 };
 
 use super::{Instruction, InstructionResult};
@@ -17,12 +17,12 @@ fn and_flags(result: u8) -> u8 {
 
 /// AND A,r8
 /// Set A to the bitwise AND between the value in r8 and A.
-pub fn and_a_r8(r8: Register8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
-    let a = cpu.get_r8(Register8::A);
-    let r8 = cpu.get_r8(r8);
+pub fn and_a_r8(r8: R8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
+    let a = cpu.registers.a;
+    let r8 = cpu.registers.get_r8(r8);
     let b = a & r8;
-    cpu.set_r8(Register8::A, b);
-    cpu.flags.set(and_flags(b));
+    cpu.registers.a = b;
+    cpu.registers.flags.set(and_flags(b));
     Ok(Instruction {
         mnemonic: Mnemonic::AND,
         bytes: 1,
@@ -32,13 +32,13 @@ pub fn and_a_r8(r8: Register8, cpu: &mut Cpu) -> InstructionResult<Instruction> 
 
 /// AND A, [HL]
 /// Set A to the bitwise AND between the byte pointed to by HL and A.
-pub fn and_a_immed_hl(cpu: &mut Cpu, mem: &mut MemoryMap) -> InstructionResult<Instruction> {
-    let a = cpu.get_r8(Register8::A);
-    let hl = cpu.registers[Register16::HL];
+pub fn and_a_immed_hl(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instruction> {
+    let a = cpu.registers.a;
+    let hl = cpu.registers.hl;
     let byte = mem.read(hl as usize);
     let b = byte & a;
-    cpu.set_r8(Register8::A, b);
-    cpu.flags.set(and_flags(b));
+    cpu.registers.a = b;
+    cpu.registers.flags.set(and_flags(b));
     Ok(Instruction {
         mnemonic: Mnemonic::AND,
         bytes: 1,
@@ -49,10 +49,10 @@ pub fn and_a_immed_hl(cpu: &mut Cpu, mem: &mut MemoryMap) -> InstructionResult<I
 /// AND A, n8
 /// Set A to the bitwise AND between the value n8 and A.
 pub fn and_a_n8(n8: u8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
-    let a = cpu.get_r8(Register8::A);
+    let a = cpu.registers.a;
     let b = n8 & a;
-    cpu.set_r8(Register8::A, b);
-    cpu.flags.set(and_flags(b));
+    cpu.registers.a = b;
+    cpu.registers.flags.set(and_flags(b));
     Ok(Instruction {
         mnemonic: Mnemonic::AND,
         bytes: 2,
@@ -63,11 +63,11 @@ pub fn and_a_n8(n8: u8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
 /// CPL
 /// ComPLement accumulator (A = ~A); also called bitwise NOT.
 pub fn cpl(cpu: &mut Cpu) -> InstructionResult<Instruction> {
-    let a = cpu.get_r8(Register8::A);
+    let a = cpu.registers.a;
     let a = a != a;
-    cpu.flags.subtraction = true;
-    cpu.flags.half_carry = true;
-    cpu.set_r8(Register8::A, a as u8);
+    cpu.registers.flags.subtraction = true;
+    cpu.registers.flags.half_carry = true;
+    cpu.registers.a = a as u8;
     Ok(Instruction {
         mnemonic: Mnemonic::CPL,
         bytes: 1,
@@ -77,13 +77,13 @@ pub fn cpl(cpu: &mut Cpu) -> InstructionResult<Instruction> {
 
 /// OR A, r8
 /// Set A to the bitwise OR between the value in r8 and A.
-pub fn or_a_r8(r8: Register8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
-    let a = cpu.get_r8(Register8::A);
-    let r8 = cpu.get_r8(r8);
+pub fn or_a_r8(r8: R8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
+    let a = cpu.registers.a;
+    let r8 = cpu.registers.get_r8(r8);
     let b = a | r8;
-    cpu.flags.clear();
-    cpu.flags.zero = b == 0;
-    cpu.set_r8(Register8::A, b);
+    cpu.registers.flags.clear();
+    cpu.registers.flags.zero = b == 0;
+    cpu.registers.a = b;
     Ok(Instruction {
         mnemonic: Mnemonic::OR,
         bytes: 1,
@@ -92,14 +92,14 @@ pub fn or_a_r8(r8: Register8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
 }
 /// OR A, [HL]
 /// Set A to the bitwise OR between the byte pointed to by HL and A.
-pub fn or_a_hl(cpu: &mut Cpu, mem: &mut MemoryMap) -> InstructionResult<Instruction> {
-    let a = cpu.get_r8(Register8::A);
-    let hl = cpu.registers[Register16::HL];
+pub fn or_a_hl(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instruction> {
+    let a = cpu.registers.a;
+    let hl = cpu.registers.hl;
     let byte = mem.read(hl as usize);
     let b = a | byte;
-    cpu.flags.clear();
-    cpu.flags.zero = b == 0;
-    cpu.set_r8(Register8::A, b);
+    cpu.registers.flags.clear();
+    cpu.registers.flags.zero = b == 0;
+    cpu.registers.a = b;
     Ok(Instruction {
         mnemonic: Mnemonic::OR,
         bytes: 1,
@@ -109,11 +109,11 @@ pub fn or_a_hl(cpu: &mut Cpu, mem: &mut MemoryMap) -> InstructionResult<Instruct
 /// OR A, n8
 /// Set A to the bitwise OR between the value n8 and A.
 pub fn or_a_n8(n8: u8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
-    let a = cpu.get_r8(Register8::A);
+    let a = cpu.registers.a;
     let b = a | n8;
-    cpu.flags.clear();
-    cpu.flags.zero = b == 0;
-    cpu.set_r8(Register8::A, a as u8);
+    cpu.registers.flags.clear();
+    cpu.registers.flags.zero = b == 0;
+    cpu.registers.a = a as u8;
     Ok(Instruction {
         mnemonic: Mnemonic::OR,
         bytes: 2,
@@ -123,13 +123,13 @@ pub fn or_a_n8(n8: u8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
 
 /// XOR A, r8
 /// Set A to the bitwise XOR between the value in r8 and A.
-pub fn xor_a_r8(r8: Register8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
-    let a = cpu.get_r8(Register8::A);
-    let r8 = cpu.get_r8(r8);
+pub fn xor_a_r8(r8: R8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
+    let a = cpu.registers.a;
+    let r8 = cpu.registers.get_r8(r8);
     let b = a ^ r8;
-    cpu.flags.clear();
-    cpu.flags.zero = b == 0;
-    cpu.set_r8(Register8::A, b);
+    cpu.registers.flags.clear();
+    cpu.registers.flags.zero = b == 0;
+    cpu.registers.a = b;
     Ok(Instruction {
         mnemonic: Mnemonic::XOR,
         bytes: 1,
@@ -139,14 +139,14 @@ pub fn xor_a_r8(r8: Register8, cpu: &mut Cpu) -> InstructionResult<Instruction> 
 
 /// XOR A, [HL]
 /// Set A to the bitwise XOR between the byte pointed to by HL and A.
-pub fn xor_a_immed_hl(cpu: &mut Cpu, mem: &mut MemoryMap) -> InstructionResult<Instruction> {
-    let a = cpu.get_r8(Register8::A);
-    let hl = cpu.registers[Register16::HL];
+pub fn xor_a_immed_hl(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instruction> {
+    let a = cpu.registers.a;
+    let hl = cpu.registers.hl;
     let byte = mem.read(hl as usize);
     let b = a ^ byte;
-    cpu.flags.clear();
-    cpu.flags.zero = b == 0;
-    cpu.set_r8(Register8::A, b);
+    cpu.registers.flags.clear();
+    cpu.registers.flags.zero = b == 0;
+    cpu.registers.a = b;
     Ok(Instruction {
         mnemonic: Mnemonic::XOR,
         bytes: 1,
@@ -157,11 +157,11 @@ pub fn xor_a_immed_hl(cpu: &mut Cpu, mem: &mut MemoryMap) -> InstructionResult<I
 /// XOR A, n8
 /// Set A to the bitwise XOR between the value n8 and A.
 pub fn xor_a_n8(n8: u8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
-    let a = cpu.get_r8(Register8::A);
+    let a = cpu.registers.a;
     let b = a ^ n8;
-    cpu.flags.clear();
-    cpu.flags.zero = b == 0;
-    cpu.set_r8(Register8::A, a as u8);
+    cpu.registers.flags.clear();
+    cpu.registers.flags.zero = b == 0;
+    cpu.registers.a = a as u8;
     Ok(Instruction {
         mnemonic: Mnemonic::XOR,
         bytes: 2,

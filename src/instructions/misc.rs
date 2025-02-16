@@ -1,4 +1,7 @@
-use crate::{memory::{registers::DIV, MemoryMap}, Cpu, Mnemonic};
+use crate::{
+    Cpu, Mnemonic,
+    memory::{Memory, registers::DIV},
+};
 
 use super::{Instruction, InstructionResult};
 
@@ -37,7 +40,7 @@ pub fn nop() -> InstructionResult<Instruction> {
 /// Enter CPU very low power mode. Also used to switch between GBC double speed and normal speed CPU modes.
 /// The exact behavior of this instruction is fragile and may interpret its second byte as a separate instruction (see the Pan Docs),
 /// which is why rgbasm(1) allows explicitly specifying the second byte (STOP n8) to override the default of $00 (a NOP instruction).
-pub fn stop(mem: &mut MemoryMap) -> InstructionResult<Instruction> {
+pub fn stop(mem: &mut Memory) -> InstructionResult<Instruction> {
     mem.write(DIV, 0);
     Ok(Instruction {
         mnemonic: Mnemonic::STOP,

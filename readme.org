@@ -21,16 +21,12 @@
 
 
 TODO:
-- [ ] add test cases for complicated instruction
-    - [ ] 
 - [x] decide what to do with the ~Thunk~ type param signature, if i refactor this it means changing all of the dispatch table params as well
 - [x] create prefix table for bitwise ops dispatched from 0xcb
-
-- instructions i need to finish:
-  - [x] bitshift instructions
-  - [x] loadh immed -> a
-  - [ ] jump/subroutine instructions
-  - [x] carry flag instructions
-  - [ ] stack manipulation instructions
-  - [ ] halt instruction
-  - [ ] DAA 
+- [x] bitshift instructions
+- [x] loadh immed -> a
+- [x] jump/subroutine instructions
+- [x] carry flag instructions
+- [ ] stack manipulation instructions
+- [ ] halt instruction
+- [ ] DAA 

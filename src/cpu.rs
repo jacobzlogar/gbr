@@ -1,34 +1,159 @@
-use std::ops::{Index, IndexMut};
+use crate::{
+    DecodeContext, Mnemonic, errors::CpuError, extract_bytes, instructions::INSTRUCTION_SET,
+    memory::Memory,
+};
 
-use crate::{errors::CpuError, instructions::INSTRUCTION_SET, memory::MemoryMap, DecodeContext, Mnemonic};
+#[derive(Debug)]
+pub enum Condition {
+    NotZero,
+    NotCarry,
+    Zero,
+    Carry,
+}
 
-/// Represents the AF, BC, DE, HL CPU registers of the Game Boy
-/// `SP` and `PC` are fields of the `Cpu` struct
-pub type Registers = [u16; 4];
+/// Represents CPU registers of the Game Boy
+#[derive(Debug, Copy, Clone)]
+pub struct Registers {
+    pub a: u8,
+    pub b: u8,
+    pub c: u8,
+    pub d: u8,
+    pub e: u8,
+    pub h: u8,
+    pub l: u8,
+    pub af: u16,
+    pub bc: u16,
+    pub de: u16,
+    pub hl: u16,
+    pub sp: u16,
+    pub pc: u16,
+    pub flags: Flags,
+}
 
-impl Index<Register16> for Registers {
-    type Output = u16;
-    fn index(&self, index: Register16) -> &Self::Output {
-        &self[index as usize]
+impl Default for Registers {
+    /// https://gbdev.io/pandocs/Power_Up_Sequence.html#cpu-registers
+    fn default() -> Self {
+        Self {
+            a: 0x01,
+            b: 0x00,
+            c: 0x13,
+            d: 0x00,
+            e: 0xd8,
+            h: 0x01,
+            l: 0x4d,
+            af: 0x01b0,
+            bc: 0x0013,
+            de: 0x00d8,
+            hl: 0x014d,
+            sp: 0xfffe,
+            pc: 0x0100,
+            flags: Flags::default(),
+        }
     }
 }
 
-impl IndexMut<Register16> for Registers {
-    fn index_mut(&mut self, index: Register16) -> &mut Self::Output {
-        &mut self[index as usize]
+impl Registers {
+    pub fn get_r8(&self, register: R8) -> u8 {
+        match register {
+            R8::A => self.a,
+            R8::B => self.b,
+            R8::C => self.c,
+            R8::D => self.d,
+            R8::E => self.e,
+            R8::H => self.h,
+            R8::L => self.l,
+        }
+    }
+
+    /// Set r8, mask higher or lower bits of parent 16-bit register and update accordingly.
+    pub fn set_r8(&mut self, register: R8, value: u8) {
+        match register {
+            R8::A => {
+                self.a = value;
+                self.af = (self.af & 0x00ff) | ((value as u16) << 8);
+            },
+            R8::B => {
+                self.b = value;
+                self.bc = (self.bc & 0x00ff) | ((value as u16) << 8);
+            },
+            R8::C => {
+                self.c = value;
+                self.bc = self.bc & 0xff00 | value as u16;
+            },
+            R8::D => {
+                self.d = value;
+                self.de = (self.de & 0x00ff) | ((value as u16) << 8);
+            },
+            R8::E => {
+                self.e = value;
+                self.de = self.de & 0xff00 | value as u16;
+            },
+            R8::H => {
+                self.h = value;
+                self.hl = (self.hl & 0x00ff) | ((value as u16) << 8);
+            },
+            R8::L => {
+                self.l = value;
+                self.hl = self.hl & 0x0ff0 | value as u16;
+            },
+        }
+    }
+
+    pub fn get_r16(&self, register: R16) -> u16 {
+        match register {
+            R16::AF => self.af,
+            R16::BC => self.bc,
+            R16::DE => self.de,
+            R16::HL => self.de,
+            R16::SP => self.sp,
+            R16::PC => self.hl,
+        }
+    }
+    pub fn set_r16(&mut self, register: R16, value: u16) {
+        let (msb, lsb) = extract_bytes(value);
+        match register {
+            R16::AF => {
+                self.af = value;
+                self.a = msb;
+                self.flags.set(lsb);
+            }
+            R16::BC => {
+                self.bc = value;
+                self.b = msb;
+                self.c = lsb;
+            }
+            R16::DE => {
+                self.de = value;
+                self.d = msb;
+                self.e = lsb;
+            }
+            R16::HL => {
+                self.hl = value;
+                self.h = msb;
+                self.l = lsb;
+            }
+            R16::SP => {
+                self.sp = value;
+            }
+            R16::PC => {
+                self.pc = value;
+            }
+        };
     }
 }
 
 #[derive(Debug, Copy, Clone)]
-pub enum Register16 {
+pub enum R16 {
     AF,
     BC,
     DE,
     HL,
+    SP,
+    PC,
 }
 
 #[derive(Debug, Copy, Clone)]
-pub enum Register8 {
+pub enum R8 {
     A,
     B,
     C,
@@ -51,11 +176,8 @@ pub struct Cpu {
     pub stack: Vec<u16>,
     instruction_stream: Vec<u8>,
     pub registers: Registers,
-    pub flags: Flags,
     // Interrupt master enable flag
     pub ime: bool,
-    pub stack_pointer: u16,
-    pub program_counter: usize,
 }
 
 impl Cpu {
@@ -63,83 +185,28 @@ impl Cpu {
         Self {
             stack: vec![],
             instruction_stream: rom,
-            registers: [0u16; 4],
-            flags: Flags::default(),
+            registers: Registers::default(),
             ime: false,
-            stack_pointer: 0xfffe,
-            program_counter: 0x0100,
         }
     }
-    /// https://gbdev.io/pandocs/Power_Up_Sequence.html#cpu-registers
-    pub fn inititalize_registers(&mut self) {
-        self.registers[Register16::AF] = 0x1b0;
-        self.registers[Register16::BC] = 0x0013;
-        self.registers[Register16::DE] = 0x00d8;
-        self.registers[Register16::HL] = 0x014d;
-    }
 
-    pub fn set_r16(&mut self, register: Register16, n16: u16) {
-        self.registers[register] = n16;
-    }
-
-    pub fn set_r8(&mut self, register: Register8, value: u8) {
-        let value = value as u16;
-        match register {
-            Register8::A => self.set_r16(
-                Register16::AF,
-                (self.registers[Register16::AF] & 0x00ff) | (value << 8),
-            ),
-            Register8::B => self.set_r16(
-                Register16::BC,
-                (self.registers[Register16::BC] & 0x00ff) | (value << 8),
-            ),
-            Register8::C => self.set_r16(
-                Register16::BC,
-                (self.registers[Register16::BC] & 0xff00) | value,
-            ),
-            Register8::D => self.set_r16(
-                Register16::DE,
-                (self.registers[Register16::DE] & 0x00ff) | (value << 8),
-            ),
-            Register8::E => self.set_r16(
-                Register16::DE,
-                (self.registers[Register16::DE] & 0xff00) | value,
-            ),
-            Register8::H => self.set_r16(
-                Register16::HL,
-                (self.registers[Register16::HL] & 0x00ff) | (value << 8),
-            ),
-            Register8::L => self.set_r16(
-                Register16::HL,
-                (self.registers[Register16::HL] & 0xff00) | value,
-            ),
+    pub fn execute(&mut self, memory: &mut Memory) -> Result<u8, CpuError> {
+        let program_counter = self.registers.pc as usize;
+        let instructions: Vec<u8> =
+            self.instruction_stream[program_counter..program_counter + 4].to_vec();
+        let mut iter = instructions.iter();
+        let opcode_byte = *iter.next().ok_or(CpuError::MissingOpcodeByte)?;
+        let mut ctx = DecodeContext {
+            iter,
+            cpu: self,
+            memory,
         };
-    }
-
-    pub fn get_r8(&self, register: Register8) -> u8 {
-        let reg = match register {
-            Register8::A => self.registers[Register16::AF] >> 8,
-            Register8::B => self.registers[Register16::BC] >> 8,
-            Register8::C => self.registers[Register16::BC] & 0xff,
-            Register8::D => self.registers[Register16::DE] >> 8,
-            Register8::E => self.registers[Register16::DE] & 0xff,
-            Register8::H => self.registers[Register16::HL] >> 8,
-            Register8::L => self.registers[Register16::HL] & 0xff,
-        };
-        reg as u8
-    }
-
-    pub fn execute(&mut self, memory: &mut MemoryMap) -> Result<u8, CpuError> {
-        let instruction_stream = &self.instruction_stream.clone();
-        let mut iter = instruction_stream[self.program_counter..].iter();
-        let opcode_byte = iter.next().ok_or(CpuError::MissingOpcodeByte)?;
-        let mut ctx = DecodeContext { iter: &mut iter, cpu: self, memory };
-        if let Ok(instruction) = INSTRUCTION_SET[*opcode_byte as usize](&mut ctx) {
-            self.program_counter += instruction.bytes as usize;
-            println!("{:?}", memory.timer_control());
+        if let Ok(instruction) = INSTRUCTION_SET[opcode_byte as usize](&mut ctx) {
+            self.registers.pc += instruction.bytes as u16;
             match instruction.mnemonic {
-                _ =>(),
-                // _ => println!("{:?} registers: {:?} flags: {:?} SP: {:?} PC: {:0x}", instruction, self.registers, self.flags, self.stack_pointer, self.program_counter)
+                Mnemonic::NOP | Mnemonic::RST => (),
+                Mnemonic::RETI => self.ime = true,
+                _ => (), // _ => println!("{:?} registers: {:?}\n", instruction, self.registers)
             };
             return Ok(instruction.cycles);
         }
@@ -147,7 +214,7 @@ impl Cpu {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub struct Flags {
     pub zero: bool,
     pub subtraction: bool,
@@ -192,4 +259,3 @@ impl Into<u8> for Flags {
         flags
     }
 }
-HI

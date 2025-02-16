@@ -1,48 +1,47 @@
 use crate::{
-    clock::{CPU_CYCLES_PER_CLOCK, CYCLES_PER_FRAME, Clock, PPU_CYCLES_PER_SCANLINE},
-    cpu::Cpu,
-    display::Ppu,
-    errors::SystemError,
-    memory::{MemoryMap, registers::*},
+    apu::Apu, cartridge::Cartridge, clock::Clock, cpu::Cpu, display::Ppu, memory::{registers::DIV, Memory}
 };
 
 pub struct System {
     pub cpu: Cpu,
+    pub apu: Apu,
     pub ppu: Ppu,
-    pub mem: MemoryMap,
+    pub mem: Memory,
     pub clock: Clock,
+    // cartridge: Cartridge
 }
 
 #[allow(dead_code)]
 impl System {
     pub fn new(rom: Vec<u8>) -> Self {
+        //let cartridge = Cartridge::read(rom);
         Self {
             cpu: Cpu::new(rom),
+            apu: Apu::default(),
             ppu: Ppu::default(),
             clock: Clock::default(),
-            mem: MemoryMap::default(),
+            mem: Memory::default(),
         }
     }
 
-    pub fn execute(mut self) -> ! {
+    fn handle_interrupts(&mut self) {
+        if self.mem.read(DIV) == 255 {
+            self.mem.write(DIV, 0);
+            println!("div {}", self.clock.master_clock);
+        }
+    }
+
+    pub fn execute(&mut self) -> ! {
         loop {
-            self.clock.master_clock += 1;
-            self.clock.cpu_cycles += 1;
-            // 4 cpu cycles per clock
-            if self.clock.cpu_cycles >= CPU_CYCLES_PER_CLOCK {
-                self.clock.cpu_cycles = 0;
-                let _ = self.cpu.execute(&mut self.mem);
-                //self.clock.cpu_cycles += self.cpu.execute(&mut self.mem.block).unwrap() as u64;
-            }
-            // 114 ppu cycles per clock, i need to figure out where i read this number
-            self.clock.ppu_cycles += 1;
-            if self.clock.ppu_cycles >= PPU_CYCLES_PER_SCANLINE {
-                self.clock.ppu_cycles = 0;
-                self.ppu.render_scanline(&self.mem.block);
-            }
-            if self.clock.master_clock % CYCLES_PER_FRAME == 0 {
-                // v-blank
-            }
+            self.clock.tick(&mut self.mem);
+            // execute instructions
+            let _ = self.cpu.execute(&mut self.mem);
+            // // process audio
+            self.apu.process();
+            // // render scanlines
+            self.ppu.render_scanline();
+            // // handle interrupts
+            self.handle_interrupts()
         }
     }
 }

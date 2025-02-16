@@ -74,12 +74,75 @@ pub mod regions {
     pub const INTERRUPT_ENABLE_REGISTER: usize = 0xffff;
 }
 
-pub struct MemoryMap {
+#[derive(Debug)]
+pub struct Memory {
     // (* 8 65536) == ~.5mb so i guess it's not that bad
     pub block: [u8; 65536],
 }
 
-impl Default for MemoryMap {
+impl Memory {
+    pub fn read(&mut self, addr: usize) -> u8 {
+        self.block[addr]
+    }
+
+    pub fn write(&mut self, addr: usize, value: u8) {
+        self.block[addr] = value;
+    }
+
+    pub fn lcd_status(&self) -> LcdStatus {
+        LcdStatus::from(self.block[STAT])
+    }
+
+    pub fn timer_control(&self) -> TimerControl {
+        TimerControl::from(self.block[TAC])
+    }
+
+    pub fn inc_div(&mut self) {
+        self.block[DIV] += 1;
+    }
+    // im not sure i'll actually end up using any of these, lol
+    pub fn get_rom_bank_0(&self) -> &[u8] {
+        &self.block[ROM_BANK_0_START..ROM_BANK_0_END]
+    }
+
+    pub fn get_rom_bank_1(&self) -> &[u8] {
+        &self.block[ROM_BANK_1_START..ROM_BANK_1_END]
+    }
+
+    pub fn get_vram(&self) -> &[u8] {
+        &self.block[VRAM_START..VRAM_END]
+    }
+
+    pub fn get_external_ram(&self) -> &[u8] {
+        &self.block[EXTERNAL_RAM_START..EXTERNAL_RAM_END]
+    }
+
+    pub fn get_work_ram_1(&self) -> &[u8] {
+        &self.block[WRAM_1_START..WRAM_1_END]
+    }
+
+    pub fn get_work_ram_2(&self) -> &[u8] {
+        &self.block[WRAM_2_START..WRAM_2_END]
+    }
+
+    pub fn get_oam(&self) -> &[u8] {
+        &self.block[OAM_START..OAM_END]
+    }
+
+    pub fn get_io_registers(&self) -> &[u8] {
+        &self.block[IO_REGISTER_START..IO_REGISTER_END]
+    }
+
+    pub fn get_hram(&self) -> &[u8] {
+        &self.block[HRAM_START..HRAM_END]
+    }
+
+    pub fn get_interrupt_registers(&self) -> &u8 {
+        &self.block[INTERRUPT_ENABLE_REGISTER]
+    }
+}
+
+impl Default for Memory {
     /// Fill hardware registers with their default values:
     /// Read more: https://gbdev.io/pandocs/Power_Up_Sequence.html#hardware-registers
     fn default() -> Self {
@@ -139,7 +202,7 @@ pub enum TimerFreq {
 #[derive(Debug)]
 pub struct TimerControl {
     enable: bool,
-    clock_select: TimerFreq
+    clock_select: TimerFreq,
 }
 
 impl From<u8> for TimerControl {
@@ -153,11 +216,10 @@ impl From<u8> for TimerControl {
         };
         Self {
             enable: value & 0x04 != 0,
-            clock_select: freq
+            clock_select: freq,
         }
     }
 }
-
 
 #[derive(Debug)]
 pub struct LcdStatus {
@@ -166,7 +228,7 @@ pub struct LcdStatus {
     mode_1_int_select: bool,
     mode_0_int_select: bool,
     lyu_lc: bool,
-    ppu_mode: bool
+    ppu_mode: bool,
 }
 
 impl From<u8> for LcdStatus {
@@ -179,67 +241,5 @@ impl From<u8> for LcdStatus {
             lyu_lc: value & 0x04 != 0,
             ppu_mode: value & 0x03 != 0,
         }
-    }
-}
-
-impl MemoryMap {
-    pub fn read(&mut self, addr: usize) -> u8 {
-        self.block[addr]
-    }
-
-    pub fn write(&mut self, addr: usize, value: u8) {
-        self.block[addr] = value;
-    }
-
-    pub fn lcd_status(&self) -> LcdStatus {
-        LcdStatus::from(self.block[STAT])
-    }
-
-    pub fn timer_control(&self) -> TimerControl {
-        TimerControl::from(self.block[TAC])
-    }
-
-    pub fn inc_div(&mut self) {
-        self.block[DIV] += 1;
-    }
-    // im not sure i'll actually end up using any of these, lol
-    pub fn get_rom_bank_0(&self) -> &[u8] {
-        &self.block[ROM_BANK_0_START..ROM_BANK_0_END]
-    }
-
-    pub fn get_rom_bank_1(&self) -> &[u8] {
-        &self.block[ROM_BANK_1_START..ROM_BANK_1_END]
-    }
-
-    pub fn get_vram(&self) -> &[u8] {
-        &self.block[VRAM_START..VRAM_END]
-    }
-
-    pub fn get_external_ram(&self) -> &[u8] {
-        &self.block[EXTERNAL_RAM_START..EXTERNAL_RAM_END]
-    }
-
-    pub fn get_work_ram_1(&self) -> &[u8] {
-        &self.block[WRAM_1_START..WRAM_1_END]
-    }
-
-    pub fn get_work_ram_2(&self) -> &[u8] {
-        &self.block[WRAM_2_START..WRAM_2_END]
-    }
-
-    pub fn get_oam(&self) -> &[u8] {
-        &self.block[OAM_START..OAM_END]
-    }
-
-    pub fn get_io_registers(&self) -> &[u8] {
-        &self.block[IO_REGISTER_START..IO_REGISTER_END]
-    }
-
-    pub fn get_hram(&self) -> &[u8] {
-        &self.block[HRAM_START..HRAM_END]
-    }
-
-    pub fn get_interrupt_registers(&self) -> &u8 {
-        &self.block[INTERRUPT_ENABLE_REGISTER]
     }
 }

@@ -1,6 +1,6 @@
 use crate::{
     Mnemonic,
-    cpu::{Cpu, Register8, Register16},
+    cpu::{Cpu, R8, R16},
 };
 
 use super::{Instruction, InstructionResult};
@@ -45,12 +45,12 @@ pub fn sub_16bit(a: u16, b: u16, carry_flag: Option<bool>) -> Arith16Bit {
 
 /// ADD HL, r16
 /// Add the value in r16 to HL
-pub fn add_r16_hl(r16: Register16, cpu: &mut Cpu) -> InstructionResult<Instruction> {
-    let r16 = cpu.registers[r16];
-    let hl = cpu.registers[Register16::HL];
+pub fn add_r16_hl(r16: R16, cpu: &mut Cpu) -> InstructionResult<Instruction> {
+    let r16 = cpu.registers.get_r16(r16);
+    let hl = cpu.registers.hl;
     let Arith16Bit { sum, flags } = add_16bit(r16, hl, None);
-    cpu.set_r16(Register16::HL, sum);
-    cpu.flags.set(flags);
+    cpu.registers.set_r16(R16::HL, sum);
+    cpu.registers.flags.set(flags);
     Ok(Instruction {
         mnemonic: Mnemonic::ADD,
         bytes: 1,
@@ -60,10 +60,10 @@ pub fn add_r16_hl(r16: Register16, cpu: &mut Cpu) -> InstructionResult<Instructi
 
 /// DEC r16
 /// Decrement the value in register r16 by 1.
-pub fn dec_r16(r16: Register16, cpu: &mut Cpu) -> InstructionResult<Instruction> {
-    let reg = cpu.registers[r16];
+pub fn dec_r16(r16: R16, cpu: &mut Cpu) -> InstructionResult<Instruction> {
+    let reg = cpu.registers.get_r16(r16);
     let Arith16Bit { sum, flags: _ } = sub_16bit(reg, 1, None);
-    cpu.set_r16(r16, sum);
+    cpu.registers.set_r16(r16, sum);
     Ok(Instruction {
         mnemonic: Mnemonic::DEC,
         bytes: 1,
@@ -73,10 +73,10 @@ pub fn dec_r16(r16: Register16, cpu: &mut Cpu) -> InstructionResult<Instruction>
 
 /// INC r16
 /// Increment the value in register r16 by 1.
-pub fn inc_r16(r16: Register16, cpu: &mut Cpu) -> InstructionResult<Instruction> {
-    let reg = cpu.registers[r16];
+pub fn inc_r16(r16: R16, cpu: &mut Cpu) -> InstructionResult<Instruction> {
+    let reg = cpu.registers.get_r16(r16);
     let Arith16Bit { sum, flags: _ } = add_16bit(reg, 1, None);
-    cpu.set_r16(r16, sum);
+    cpu.registers.set_r16(r16, sum);
     Ok(Instruction {
         mnemonic: Mnemonic::INC,
         bytes: 1,
@@ -90,10 +90,10 @@ mod tests {
     #[test]
     fn test_add_r16_hl() {
         let mut cpu = Cpu::new(vec![]);
-        cpu.set_r16(Register16::BC, 0xfffe);
-        cpu.set_r16(Register16::HL, 0x0002);
-        let _ = add_r16_hl(Register16::BC, &mut cpu);
-        assert_eq!(cpu.registers[Register16::HL], 0);
+        cpu.registers.set_r16(R16::BC, 0xfffe);
+        cpu.registers.set_r16(R16::HL, 0x0002);
+        let _ = add_r16_hl(R16::BC, &mut cpu);
+        assert_eq!(cpu.registers.hl, 0);
         // assert_eq!(cpu.get_r8(Register8::Flags), 0xb0);
     }
 }
