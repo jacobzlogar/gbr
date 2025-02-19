@@ -33,8 +33,8 @@ TODO:
 - [ ] DAA 
 
 
-* Timing:
-** how does DIV affect other timing registers?
+Timing:
+- how does DIV affect other timing registers?
 
-* rendering
-** render logo with sdl3
+rendering
+- render logo with sdl3
