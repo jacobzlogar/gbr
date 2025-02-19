@@ -32,6 +32,8 @@ impl std::fmt::Display for JoypadError {
 #[derive(Debug)]
 pub enum SystemError {
     Contention,
+    CartridgeError,
+    TimerControlError,
 }
 
 impl std::error::Error for SystemError {}
@@ -51,5 +53,30 @@ pub enum CpuError {
 impl std::fmt::Display for CpuError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         todo!()
+    }
+}
+
+#[derive(Debug)]
+pub enum CartridgeError {
+    InvalidHardware(u8),
+    InvalidRamSize(u8),
+    InvalidRomSize(u8),
+}
+
+impl std::error::Error for CartridgeError {}
+
+impl std::fmt::Display for CartridgeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::InvalidHardware(byte) => {
+                write!(f, "No hardware mapping for: {byte}")
+            }
+            Self::InvalidRamSize(byte) => {
+                write!(f, "No ram size mapping for: {byte}")
+            }
+            Self::InvalidRomSize(byte) => {
+                write!(f, "No rom size mapping for: {byte}")
+            }
+        }
     }
 }

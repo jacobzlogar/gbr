@@ -28,5 +28,13 @@ TODO:
 - [x] jump/subroutine instructions
 - [x] carry flag instructions
 - [ ] stack manipulation instructions
+  - e8 instructions
 - [ ] halt instruction
 - [ ] DAA 
+
+
+* Timing:
+** how does DIV affect other timing registers?
+
+* rendering
+** render logo with sdl3

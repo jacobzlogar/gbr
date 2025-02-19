@@ -19,6 +19,7 @@ pub fn ld_r8_r8(
 ) -> InstructionResult<Instruction> {
     let source = cpu.registers.get_r8(source);
     cpu.registers.set_r8(dest, source);
+    cpu.registers.pc += 1;
     Ok(Instruction {
         mnemonic: Mnemonic::LD,
         bytes: 1,
@@ -30,6 +31,7 @@ pub fn ld_r8_r8(
 /// Copy the value n8 into register r8.
 pub fn ld_r8_n8(r8: R8, n8: u8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
     cpu.registers.set_r8(r8, n8);
+    cpu.registers.pc += 2;
     Ok(Instruction {
         mnemonic: Mnemonic::LD,
         bytes: 2,
@@ -41,6 +43,7 @@ pub fn ld_r8_n8(r8: R8, n8: u8, cpu: &mut Cpu) -> InstructionResult<Instruction>
 /// Copy the value n16 into register r16.
 pub fn ld_r16_n16(r16: R16, n16: u16, cpu: &mut Cpu) -> InstructionResult<Instruction> {
     cpu.registers.set_r16(r16, n16);
+    cpu.registers.pc += 3;
     Ok(Instruction {
         mnemonic: Mnemonic::LD,
         bytes: 3,
@@ -54,6 +57,7 @@ pub fn ld_r8_hl(r8: R8, cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<In
     let hl = cpu.registers.hl;
     let r8 = cpu.registers.get_r8(r8);
     mem.write(hl as usize, r8);
+    cpu.registers.pc += 2;
     Ok(Instruction {
         mnemonic: Mnemonic::LD,
         bytes: 2,
@@ -66,6 +70,7 @@ pub fn ld_r8_hl(r8: R8, cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<In
 pub fn ld_n8_hl(n8: u8, cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instruction> {
     let hl = cpu.registers.hl;
     mem.write(hl as usize, n8);
+    cpu.registers.pc += 2;
     Ok(Instruction {
         mnemonic: Mnemonic::LD,
         bytes: 2,
@@ -79,6 +84,7 @@ pub fn ld_hl_r8(r8: R8, cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<In
     let hl = cpu.registers.hl;
     let byte = mem.read(hl as usize);
     cpu.registers.set_r8(r8, byte);
+    cpu.registers.pc += 2;
     Ok(Instruction {
         mnemonic: Mnemonic::LD,
         bytes: 2,
@@ -88,14 +94,11 @@ pub fn ld_hl_r8(r8: R8, cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<In
 
 /// LD [r16],A
 /// Copy the value in register A into the byte pointed to by r16.
-pub fn ld_a_immed_r16(
-    r16: R16,
-    cpu: &mut Cpu,
-    mem: &mut Memory,
-) -> InstructionResult<Instruction> {
+pub fn ld_a_immed_r16(r16: R16, cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instruction> {
     let a = cpu.registers.a;
     let r16 = cpu.registers.get_r16(r16);
     mem.write(r16 as usize, a as u8);
+    cpu.registers.pc += 1;
     Ok(Instruction {
         mnemonic: Mnemonic::LD,
         bytes: 1,
@@ -105,13 +108,10 @@ pub fn ld_a_immed_r16(
 
 /// LD A, [n16]
 /// Copy the byte at address n16 into register A.
-pub fn ld_immed_n16_a(
-    n16: u16,
-    cpu: &mut Cpu,
-    mem: &mut Memory,
-) -> InstructionResult<Instruction> {
+pub fn ld_immed_n16_a(n16: u16, cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instruction> {
     let byte = mem.read(n16 as usize);
     cpu.registers.set_r8(R8::A, byte);
+    cpu.registers.pc += 3;
     Ok(Instruction {
         mnemonic: Mnemonic::LD,
         bytes: 3,
@@ -121,13 +121,10 @@ pub fn ld_immed_n16_a(
 
 /// LD [n16], A
 /// Copy the value in register A into the byte at address n16.
-pub fn ld_a_immed_n16(
-    n16: u16,
-    cpu: &mut Cpu,
-    mem: &mut Memory,
-) -> InstructionResult<Instruction> {
+pub fn ld_a_immed_n16(n16: u16, cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instruction> {
     let a = cpu.registers.a;
     mem.write(n16 as usize, a as u8);
+    cpu.registers.pc += 3;
     Ok(Instruction {
         mnemonic: Mnemonic::LD,
         bytes: 3,
@@ -148,6 +145,7 @@ pub fn ldh_a_immed_n16(
         cpu.registers.set_r8(R8::A, byte);
         cpu.registers.a = byte;
     }
+    cpu.registers.pc += 2;
     Ok(Instruction {
         mnemonic: Mnemonic::LDH,
         bytes: 2,
@@ -166,6 +164,7 @@ pub fn ldh_immed_n16_a(
     if (0xff00..=0xfff).contains(&n16) {
         mem.write(n16 as usize, a);
     }
+    cpu.registers.pc += 2;
     Ok(Instruction {
         mnemonic: Mnemonic::LDH,
         bytes: 2,
@@ -180,6 +179,7 @@ pub fn ldh_a_c(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instruction
     let c = cpu.registers.c;
     let byte = mem.read(0xff00 + c as usize);
     cpu.registers.set_r8(R8::A, byte);
+    cpu.registers.pc += 1;
     Ok(Instruction {
         mnemonic: Mnemonic::LDH,
         bytes: 1,
@@ -193,6 +193,7 @@ pub fn ldh_c_a(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instruction
     let a = cpu.registers.a;
     let c = cpu.registers.c;
     mem.write(0xff00 + c as usize, a);
+    cpu.registers.pc += 1;
     Ok(Instruction {
         mnemonic: Mnemonic::LDH,
         bytes: 1,
@@ -202,14 +203,11 @@ pub fn ldh_c_a(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instruction
 
 /// LD A,[r16]
 /// Copy the byte pointed to by r16 into register A.
-pub fn ld_immed_r16_a(
-    r16: R16,
-    cpu: &mut Cpu,
-    mem: &mut Memory,
-) -> InstructionResult<Instruction> {
+pub fn ld_immed_r16_a(r16: R16, cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instruction> {
     let r16 = cpu.registers.get_r16(r16);
     let immed = mem.read(r16 as usize);
     cpu.registers.set_r8(R8::A, immed);
+    cpu.registers.pc += 1;
     Ok(Instruction {
         mnemonic: Mnemonic::LD,
         bytes: 1,
@@ -224,6 +222,7 @@ pub fn ld_a_hli(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instructio
     let a = cpu.registers.a;
     mem.write(hl as usize, a);
     cpu.registers.set_r16(R16::HL, hl + 1);
+    cpu.registers.pc += 1;
     Ok(Instruction {
         mnemonic: Mnemonic::LD,
         bytes: 1,
@@ -238,6 +237,7 @@ pub fn ld_a_hld(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instructio
     let a = cpu.registers.a;
     mem.write(hl as usize, a);
     cpu.registers.set_r16(R16::HL, hl - 1);
+    cpu.registers.pc += 1;
     Ok(Instruction {
         mnemonic: Mnemonic::LD,
         bytes: 1,
@@ -251,6 +251,7 @@ pub fn ld_hld_a(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instructio
     let byte = mem.read(hl as usize);
     cpu.registers.set_r8(R8::A, byte);
     cpu.registers.set_r16(R16::HL, hl - 1);
+    cpu.registers.pc += 1;
     Ok(Instruction {
         mnemonic: Mnemonic::LD,
         bytes: 1,
@@ -265,6 +266,7 @@ pub fn ld_hli_a(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instructio
     let byte = mem.read(hl as usize);
     cpu.registers.set_r8(R8::A, byte);
     cpu.registers.set_r16(R16::HL, hl + 1);
+    cpu.registers.pc += 1;
     Ok(Instruction {
         mnemonic: Mnemonic::LD,
         bytes: 1,
@@ -277,7 +279,7 @@ mod tests {
 
     #[test]
     fn test_ld_r8_r8() {
-        let mut cpu = Cpu::new(vec![]);
+        let mut cpu = Cpu::default();
         ld_r8_r8(R8::A, R8::B, &mut cpu).unwrap();
         assert_eq!(cpu.registers.bc, 0x0113);
         assert_eq!(cpu.registers.b, 0x01);
@@ -286,7 +288,7 @@ mod tests {
 
     #[test]
     fn test_ld_r8_n8() {
-        let mut cpu = Cpu::new(vec![]);
+        let mut cpu = Cpu::default();
         ld_r8_n8(R8::B, 0x69, &mut cpu).unwrap();
         assert_eq!(cpu.registers.bc, 0x6913);
         assert_eq!(cpu.registers.b, 0x69);
@@ -295,7 +297,7 @@ mod tests {
 
     #[test]
     fn test_ld_r16_n16() {
-        let mut cpu = Cpu::new(vec![]);
+        let mut cpu = Cpu::default();
         let n16 = 0x0420;
         ld_r16_n16(R16::BC, n16, &mut cpu).unwrap();
         assert_eq!(cpu.registers.bc, 0x0420);

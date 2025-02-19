@@ -15,6 +15,7 @@ pub fn bit_u3_r8(u3: u8, r8: R8, cpu: &mut Cpu) -> InstructionResult<Instruction
     cpu.registers.flags.zero = bit == 1;
     cpu.registers.flags.subtraction = false;
     cpu.registers.flags.half_carry = true;
+    cpu.registers.pc += 2;
     Ok(Instruction {
         mnemonic: Mnemonic::BIT,
         bytes: 2,
@@ -31,6 +32,7 @@ pub fn bit_u3_hl(u3: u8, cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<I
     cpu.registers.flags.zero = bit == 1;
     cpu.registers.flags.subtraction = false;
     cpu.registers.flags.half_carry = true;
+    cpu.registers.pc += 2;
     Ok(Instruction {
         mnemonic: Mnemonic::BIT,
         bytes: 2,
@@ -44,6 +46,7 @@ pub fn res_u3_r8(u3: u8, r8: R8, cpu: &mut Cpu) -> InstructionResult<Instruction
     let mut reg = cpu.registers.get_r8(r8);
     reg |= 0 << u3;
     cpu.registers.set_r8(r8, reg);
+    cpu.registers.pc += 2;
     Ok(Instruction {
         mnemonic: Mnemonic::RES,
         bytes: 2,
@@ -58,6 +61,7 @@ pub fn res_u3_hl(u3: u8, cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<I
     let mut byte = mem.read(hl as usize);
     byte |= 0 << u3;
     mem.write(hl as usize, byte);
+    cpu.registers.pc += 2;
     Ok(Instruction {
         mnemonic: Mnemonic::RES,
         bytes: 2,
@@ -71,6 +75,7 @@ pub fn set_u3_r8(u3: u8, r8: R8, cpu: &mut Cpu) -> InstructionResult<Instruction
     let mut reg = cpu.registers.get_r8(r8);
     reg |= 1 << u3;
     cpu.registers.set_r8(r8, reg);
+    cpu.registers.pc += 2;
     Ok(Instruction {
         mnemonic: Mnemonic::SET,
         bytes: 2,
@@ -85,6 +90,7 @@ pub fn set_u3_hl(u3: u8, cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<I
     let mut byte = mem.read(hl as usize);
     byte |= 1 << u3;
     mem.write(hl as usize, byte);
+    cpu.registers.pc += 2;
     Ok(Instruction {
         mnemonic: Mnemonic::SET,
         bytes: 2,

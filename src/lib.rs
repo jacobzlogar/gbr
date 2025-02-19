@@ -55,9 +55,8 @@ pub struct DecodeContext<'a> {
 /// }
 /// ```
 
-// maybe i should define a contract for functions that decode instructions, i.e:
-// functions in the dispatch table take different parts of `ctx` as parameters, i think they should
-// just take all `DecodeContext` as a param
+// maybe i should define a contract for functions that decode instructions,
+// i.e: functions in the dispatch table take different parts of `ctx` as parameters, i think they should always take all of `DecodeContext`
 pub type InstructionFn = fn(&mut DecodeContext) -> InstructionResult<Instruction>;
 
 #[derive(Debug, PartialEq, Eq)]

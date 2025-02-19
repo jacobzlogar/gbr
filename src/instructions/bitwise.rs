@@ -23,6 +23,7 @@ pub fn and_a_r8(r8: R8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
     let b = a & r8;
     cpu.registers.a = b;
     cpu.registers.flags.set(and_flags(b));
+    cpu.registers.pc += 1;
     Ok(Instruction {
         mnemonic: Mnemonic::AND,
         bytes: 1,
@@ -39,6 +40,7 @@ pub fn and_a_immed_hl(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Inst
     let b = byte & a;
     cpu.registers.a = b;
     cpu.registers.flags.set(and_flags(b));
+    cpu.registers.pc += 1;
     Ok(Instruction {
         mnemonic: Mnemonic::AND,
         bytes: 1,
@@ -53,6 +55,7 @@ pub fn and_a_n8(n8: u8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
     let b = n8 & a;
     cpu.registers.a = b;
     cpu.registers.flags.set(and_flags(b));
+    cpu.registers.pc += 2;
     Ok(Instruction {
         mnemonic: Mnemonic::AND,
         bytes: 2,
@@ -68,6 +71,7 @@ pub fn cpl(cpu: &mut Cpu) -> InstructionResult<Instruction> {
     cpu.registers.flags.subtraction = true;
     cpu.registers.flags.half_carry = true;
     cpu.registers.a = a as u8;
+    cpu.registers.pc += 1;
     Ok(Instruction {
         mnemonic: Mnemonic::CPL,
         bytes: 1,
@@ -84,6 +88,7 @@ pub fn or_a_r8(r8: R8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
     cpu.registers.flags.clear();
     cpu.registers.flags.zero = b == 0;
     cpu.registers.a = b;
+    cpu.registers.pc += 1;
     Ok(Instruction {
         mnemonic: Mnemonic::OR,
         bytes: 1,
@@ -100,6 +105,7 @@ pub fn or_a_hl(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instruction
     cpu.registers.flags.clear();
     cpu.registers.flags.zero = b == 0;
     cpu.registers.a = b;
+    cpu.registers.pc += 1;
     Ok(Instruction {
         mnemonic: Mnemonic::OR,
         bytes: 1,
@@ -114,6 +120,7 @@ pub fn or_a_n8(n8: u8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
     cpu.registers.flags.clear();
     cpu.registers.flags.zero = b == 0;
     cpu.registers.a = a as u8;
+    cpu.registers.pc += 2;
     Ok(Instruction {
         mnemonic: Mnemonic::OR,
         bytes: 2,
@@ -130,6 +137,7 @@ pub fn xor_a_r8(r8: R8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
     cpu.registers.flags.clear();
     cpu.registers.flags.zero = b == 0;
     cpu.registers.a = b;
+    cpu.registers.pc += 1;
     Ok(Instruction {
         mnemonic: Mnemonic::XOR,
         bytes: 1,
@@ -147,6 +155,7 @@ pub fn xor_a_immed_hl(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Inst
     cpu.registers.flags.clear();
     cpu.registers.flags.zero = b == 0;
     cpu.registers.a = b;
+    cpu.registers.pc += 1;
     Ok(Instruction {
         mnemonic: Mnemonic::XOR,
         bytes: 1,
@@ -162,6 +171,7 @@ pub fn xor_a_n8(n8: u8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
     cpu.registers.flags.clear();
     cpu.registers.flags.zero = b == 0;
     cpu.registers.a = a as u8;
+    cpu.registers.pc += 2;
     Ok(Instruction {
         mnemonic: Mnemonic::XOR,
         bytes: 2,

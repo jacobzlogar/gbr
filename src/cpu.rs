@@ -71,31 +71,31 @@ impl Registers {
             R8::A => {
                 self.a = value;
                 self.af = (self.af & 0x00ff) | ((value as u16) << 8);
-            },
+            }
             R8::B => {
                 self.b = value;
                 self.bc = (self.bc & 0x00ff) | ((value as u16) << 8);
-            },
+            }
             R8::C => {
                 self.c = value;
                 self.bc = self.bc & 0xff00 | value as u16;
-            },
+            }
             R8::D => {
                 self.d = value;
                 self.de = (self.de & 0x00ff) | ((value as u16) << 8);
-            },
+            }
             R8::E => {
                 self.e = value;
                 self.de = self.de & 0xff00 | value as u16;
-            },
+            }
             R8::H => {
                 self.h = value;
                 self.hl = (self.hl & 0x00ff) | ((value as u16) << 8);
-            },
+            }
             R8::L => {
                 self.l = value;
                 self.hl = self.hl & 0x0ff0 | value as u16;
-            },
+            }
         }
     }
 
@@ -142,7 +142,7 @@ impl Registers {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum R16 {
     AF,
     BC,
@@ -173,28 +173,26 @@ pub enum Flag {
 
 #[derive(Debug)]
 pub struct Cpu {
-    pub stack: Vec<u16>,
-    instruction_stream: Vec<u8>,
     pub registers: Registers,
     // Interrupt master enable flag
     pub ime: bool,
 }
 
-impl Cpu {
-    pub fn new(rom: Vec<u8>) -> Self {
+impl Default for Cpu {
+    fn default() -> Self {
         Self {
-            stack: vec![],
-            instruction_stream: rom,
             registers: Registers::default(),
             ime: false,
         }
     }
+}
 
+impl Cpu {
     pub fn execute(&mut self, memory: &mut Memory) -> Result<u8, CpuError> {
-        let program_counter = self.registers.pc as usize;
-        let instructions: Vec<u8> =
-            self.instruction_stream[program_counter..program_counter + 4].to_vec();
-        let mut iter = instructions.iter();
+        let pc = self.registers.pc as usize;
+        let cloned_memory = memory.clone();
+        let rom = &cloned_memory.rom()[pc..];
+        let mut iter = rom.iter();
         let opcode_byte = *iter.next().ok_or(CpuError::MissingOpcodeByte)?;
         let mut ctx = DecodeContext {
             iter,
@@ -202,14 +200,20 @@ impl Cpu {
             memory,
         };
         if let Ok(instruction) = INSTRUCTION_SET[opcode_byte as usize](&mut ctx) {
-            self.registers.pc += instruction.bytes as u16;
             match instruction.mnemonic {
-                Mnemonic::NOP | Mnemonic::RST => (),
+                Mnemonic::NOP => {
+                    self.registers.pc += 1;
+                }
+                Mnemonic::RST => {
+                    self.registers.pc += 1;
+                }
                 Mnemonic::RETI => self.ime = true,
-                _ => (), // _ => println!("{:?} registers: {:?}\n", instruction, self.registers)
+                Mnemonic::EI => self.ime = true,
+                _ => (),
             };
             return Ok(instruction.cycles);
         }
+        // what does this actually mean? this seems kind of useless do we ever err from here?
         Err(CpuError::NoCycles)
     }
 }

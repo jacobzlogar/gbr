@@ -1,5 +1,27 @@
+use std::{fmt::Debug, io::Read};
+
+use sdl3::{
+    event::Event,
+    iostream::IOStream,
+    keyboard::Keycode,
+    pixels::{Color, PixelFormat},
+    rect::Rect,
+    render::{FPoint, FRect, TextureAccess},
+    surface::Surface,
+};
+
 use crate::{
-    apu::Apu, cartridge::Cartridge, clock::Clock, cpu::Cpu, display::Ppu, memory::{registers::DIV, Memory}
+    DecodeContext,
+    apu::Apu,
+    cartridge::Cartridge,
+    clock::Clock,
+    cpu::Cpu,
+    display::Ppu,
+    errors::{CartridgeError, SystemError},
+    memory::{
+        Memory,
+        registers::{DIV, IE, TMA},
+    },
 };
 
 pub struct System {
@@ -8,26 +30,30 @@ pub struct System {
     pub ppu: Ppu,
     pub mem: Memory,
     pub clock: Clock,
-    // cartridge: Cartridge
+    pub cartridge: Cartridge,
 }
 
 #[allow(dead_code)]
 impl System {
-    pub fn new(rom: Vec<u8>) -> Self {
-        //let cartridge = Cartridge::read(rom);
-        Self {
-            cpu: Cpu::new(rom),
+    pub fn new(rom: Vec<u8>) -> Result<Self, SystemError> {
+        let mut mem = Memory::default();
+        let cartridge =
+            Cartridge::new(rom.clone(), &mut mem).map_err(|_| SystemError::CartridgeError)?;
+        let ppu = Ppu::new(&cartridge.title);
+        let cpu = Cpu::default();
+        Ok(Self {
+            cpu,
             apu: Apu::default(),
-            ppu: Ppu::default(),
-            clock: Clock::default(),
-            mem: Memory::default(),
-        }
+            clock: Clock::new(&mut mem),
+            mem,
+            ppu,
+            cartridge,
+        })
     }
 
     fn handle_interrupts(&mut self) {
-        if self.mem.read(DIV) == 255 {
-            self.mem.write(DIV, 0);
-            println!("div {}", self.clock.master_clock);
+        if let Some(interrupt) = self.mem.interrupt_enable() {
+            println!("{:?}", interrupt);
         }
     }
 
@@ -35,13 +61,40 @@ impl System {
         loop {
             self.clock.tick(&mut self.mem);
             // execute instructions
-            let _ = self.cpu.execute(&mut self.mem);
-            // // process audio
+            let cpu_cycles = self.cpu.execute(&mut self.mem).unwrap() as usize;
+            self.clock.m_cycles += cpu_cycles;
+            // self.clock.master_clock += cpu_cycles as u64;
+            // process audio
             self.apu.process();
-            // // render scanlines
-            self.ppu.render_scanline();
-            // // handle interrupts
-            self.handle_interrupts()
+            // handle interrupts
+            self.handle_interrupts();
+            // self.ppu.canvas.clear();
         }
+        // println!("{:?}", self.cartridge);
+        // self.ppu.canvas.set_draw_color(Color::WHITE);
+        // self.ppu.canvas.clear();
+        // self.ppu.canvas.present();
+        // 'running: loop {
+        //     self.clock.tick(&mut self.mem);
+        //     // execute instructions
+        //     let _cpu_cycles = self.cpu.execute(&mut self.mem).unwrap();
+        //     // process audio
+        //     self.apu.process();
+        //     // handle interrupts
+        //     self.handle_interrupts();
+        //     // self.ppu.canvas.clear();
+        //     for event in self.ppu.event_pump.poll_iter() {
+        //         match event {
+        //             Event::Quit { .. }
+        //             | Event::KeyDown {
+        //                 keycode: Some(Keycode::Escape),
+        //                 ..
+        //             } => break 'running,
+        //             _ => {}
+        //         }
+        //     }
+        //     // draw the canvas
+        //     // self.ppu.canvas.present();
+        // }
     }
 }

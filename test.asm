@@ -9,14 +9,4 @@ SECTION "Header", ROM0[$100]
   ds $150 - @, 0 ; Make room for the header
 
 EntryPoint:
-  ; Shut down audio circuitry
-  ld b, 12
-  
-Foo:
-  ld b, 12
-  
-Bar:
-  jr Foo
-  
-Baz:
   ld b, 12

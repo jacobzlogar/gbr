@@ -6,6 +6,7 @@ use super::{Instruction, InstructionResult};
 /// Disable Interrupts by clearing the IME flag.
 pub fn di(cpu: &mut Cpu) -> InstructionResult<Instruction> {
     cpu.ime = false;
+    cpu.registers.pc += 1;
     Ok(Instruction {
         mnemonic: Mnemonic::DI,
         bytes: 1,
@@ -16,10 +17,9 @@ pub fn di(cpu: &mut Cpu) -> InstructionResult<Instruction> {
 /// EI
 /// Enable Interrupts by setting the IME flag.
 /// The flag is only set after the instruction following EI.
-pub fn ei(cpu: &mut Cpu) -> InstructionResult<Instruction> {
-    cpu.ime = true;
+pub fn ei() -> InstructionResult<Instruction> {
     Ok(Instruction {
-        mnemonic: Mnemonic::DI,
+        mnemonic: Mnemonic::EI,
         bytes: 1,
         cycles: 1,
     })
@@ -34,6 +34,7 @@ pub fn ei(cpu: &mut Cpu) -> InstructionResult<Instruction> {
 /// If the IME flag is not set, and some interrupt is pending:
 /// The CPU continues execution after the HALT, but the byte after it is read twice in a row (PC is not incremented, due to a hardware bug).
 pub fn halt(cpu: &mut Cpu) -> InstructionResult<Instruction> {
+    cpu.registers.pc += 1;
     Ok(Instruction {
         mnemonic: Mnemonic::HALT,
         bytes: 1,

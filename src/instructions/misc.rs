@@ -19,6 +19,7 @@ use super::{Instruction, InstructionResult};
 /// If the carry flag is set or A > $99, then add $60 to the adjustment and set the carry flag.
 /// Add the adjustment to A.
 pub fn daa(cpu: &mut Cpu) -> InstructionResult<Instruction> {
+    cpu.registers.pc += 1;
     Ok(Instruction {
         mnemonic: Mnemonic::DAA,
         bytes: 1,

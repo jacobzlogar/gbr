@@ -1,8 +1,10 @@
 use crate::{
-    cc, cpu::{Cpu, R16}, memory::Memory, Mnemonic
+    Mnemonic, cc,
+    cpu::{Cpu, R16},
+    memory::Memory,
 };
 
-use super::{push_stack, pop_stack, Condition, Instruction, InstructionResult};
+use super::{Condition, Instruction, InstructionResult, pop_stack, push_stack};
 
 /// CALL n16
 /// Call address n16.
@@ -50,6 +52,7 @@ pub fn jp_hl(cpu: &mut Cpu) -> InstructionResult<Instruction> {
 /// JP n16
 /// Jump to address n16; effectively, copy n16 into PC.
 pub fn jp_n16(n16: u16, cpu: &mut Cpu) -> InstructionResult<Instruction> {
+    println!("jump to: {n16}");
     cpu.registers.set_r16(R16::PC, n16);
     Ok(Instruction {
         mnemonic: Mnemonic::JP,
@@ -76,7 +79,8 @@ pub fn jp_cc_n16(n16: u16, condition: Condition, cpu: &mut Cpu) -> InstructionRe
 /// The address is encoded as a signed 8-bit offset from the address immediately following the JR instruction, so the target address n16 must be between -128 and 127 bytes away. For example:
 pub fn jr_n16(e8: u8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
     let offset = e8 as i8;
-    cpu.registers.set_r16(R16::PC, cpu.registers.pc.wrapping_add(offset as u16));
+    cpu.registers
+        .set_r16(R16::PC, cpu.registers.pc.wrapping_add(offset as u16));
     Ok(Instruction {
         mnemonic: Mnemonic::JR,
         bytes: 2,
@@ -89,7 +93,8 @@ pub fn jr_n16(e8: u8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
 pub fn jr_cc_n16(e8: u8, condition: Condition, cpu: &mut Cpu) -> InstructionResult<Instruction> {
     if cc(cpu, condition) {
         let offset = e8 as i8;
-        cpu.registers.set_r16(R16::PC, cpu.registers.pc.wrapping_add(offset as u16));
+        cpu.registers
+            .set_r16(R16::PC, cpu.registers.pc.wrapping_add(offset as u16));
     }
     Ok(Instruction {
         mnemonic: Mnemonic::JR,
@@ -154,7 +159,7 @@ mod tests {
 
     #[test]
     fn test_call_n16() {
-        let mut cpu = Cpu::new(vec![]);
+        let mut cpu = Cpu::default();
         let mut mem = Memory::default();
         assert_eq!(cpu.registers.sp, 0xfffe);
         call_n16(0x420, &mut cpu, &mut mem).unwrap();
@@ -165,7 +170,7 @@ mod tests {
 
     #[test]
     fn test_call_cc_n16() {
-        let mut cpu = Cpu::new(vec![]);
+        let mut cpu = Cpu::default();
         let mut mem = Memory::default();
         assert_eq!(cpu.registers.sp, 0xfffe);
         call_cc_n16(0x420, Condition::Carry, &mut cpu, &mut mem).unwrap();
@@ -176,7 +181,7 @@ mod tests {
 
     #[test]
     fn test_jp_hl() {
-        let mut cpu = Cpu::new(vec![]);
+        let mut cpu = Cpu::default();
         cpu.registers.set_r16(R16::HL, 0x420);
         jp_hl(&mut cpu).unwrap();
         assert_eq!(cpu.registers.pc, 0x420);
@@ -184,21 +189,21 @@ mod tests {
 
     #[test]
     fn test_jp_n16() {
-        let mut cpu = Cpu::new(vec![]);
+        let mut cpu = Cpu::default();
         jp_n16(0x420, &mut cpu).unwrap();
         assert_eq!(cpu.registers.pc, 0x420);
     }
 
     #[test]
     fn test_jp_cc_n16() {
-        let mut cpu = Cpu::new(vec![]);
+        let mut cpu = Cpu::default();
         jp_cc_n16(0x420, Condition::Carry, &mut cpu).unwrap();
         assert_eq!(cpu.registers.pc, 0x420);
     }
 
     #[test]
     fn test_jr_n16() {
-        let mut cpu = Cpu::new(vec![]);
+        let mut cpu = Cpu::default();
         assert_eq!(cpu.registers.pc, 0x0100);
         jr_n16(0xfc, &mut cpu).unwrap();
         assert_eq!(cpu.registers.pc, 0x00fc);
@@ -206,7 +211,7 @@ mod tests {
 
     #[test]
     fn test_jr_cc_n16() {
-        let mut cpu = Cpu::new(vec![]);
+        let mut cpu = Cpu::default();
         assert_eq!(cpu.registers.pc, 0x0100);
         jr_cc_n16(0xfc, Condition::Carry, &mut cpu).unwrap();
         assert_eq!(cpu.registers.pc, 0x00fc);
@@ -217,8 +222,8 @@ mod tests {
 
     #[test]
     fn test_ret_cc() {
-        let mut cpu = Cpu::new(vec![]);
-        let mut mem =  Memory::default();
+        let mut cpu = Cpu::default();
+        let mut mem = Memory::default();
         push_stack(cpu.registers.pc + 3, &mut cpu, &mut mem);
         ret_cc(Condition::Carry, &mut cpu, &mut mem).unwrap();
         assert_eq!(cpu.registers.pc, 0x103);

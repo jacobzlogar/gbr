@@ -51,6 +51,7 @@ pub fn add_r16_hl(r16: R16, cpu: &mut Cpu) -> InstructionResult<Instruction> {
     let Arith16Bit { sum, flags } = add_16bit(r16, hl, None);
     cpu.registers.set_r16(R16::HL, sum);
     cpu.registers.flags.set(flags);
+    cpu.registers.pc += 1;
     Ok(Instruction {
         mnemonic: Mnemonic::ADD,
         bytes: 1,
@@ -64,6 +65,9 @@ pub fn dec_r16(r16: R16, cpu: &mut Cpu) -> InstructionResult<Instruction> {
     let reg = cpu.registers.get_r16(r16);
     let Arith16Bit { sum, flags: _ } = sub_16bit(reg, 1, None);
     cpu.registers.set_r16(r16, sum);
+    if r16 != R16::PC {
+        cpu.registers.pc += 1;
+    }
     Ok(Instruction {
         mnemonic: Mnemonic::DEC,
         bytes: 1,
@@ -77,6 +81,9 @@ pub fn inc_r16(r16: R16, cpu: &mut Cpu) -> InstructionResult<Instruction> {
     let reg = cpu.registers.get_r16(r16);
     let Arith16Bit { sum, flags: _ } = add_16bit(reg, 1, None);
     cpu.registers.set_r16(r16, sum);
+    if r16 != R16::PC {
+        cpu.registers.pc += 1;
+    }
     Ok(Instruction {
         mnemonic: Mnemonic::INC,
         bytes: 1,
@@ -89,7 +96,7 @@ mod tests {
 
     #[test]
     fn test_add_r16_hl() {
-        let mut cpu = Cpu::new(vec![]);
+        let mut cpu = Cpu::default();
         cpu.registers.set_r16(R16::BC, 0xfffe);
         cpu.registers.set_r16(R16::HL, 0x0002);
         let _ = add_r16_hl(R16::BC, &mut cpu);

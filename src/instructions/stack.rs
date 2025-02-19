@@ -5,9 +5,9 @@ use crate::{
 };
 
 use super::{
-    arithmetic_16bit::{add_16bit, Arith16Bit}, Instruction, InstructionResult
+    Instruction, InstructionResult,
+    arithmetic_16bit::{Arith16Bit, add_16bit},
 };
-
 
 /// Push onto the stack
 pub fn push_stack(n16: u16, cpu: &mut Cpu, mem: &mut Memory) {
@@ -37,6 +37,7 @@ pub fn add_hl_sp(cpu: &mut Cpu) -> InstructionResult<Instruction> {
     let Arith16Bit { sum, flags } = add_16bit(cpu.registers.sp, cpu.registers.hl, None);
     cpu.registers.flags.set(flags);
     cpu.registers.set_r16(R16::HL, sum);
+    cpu.registers.pc += 1;
     Ok(Instruction {
         mnemonic: Mnemonic::ADD,
         bytes: 1,
@@ -49,11 +50,8 @@ pub fn add_hl_sp(cpu: &mut Cpu) -> InstructionResult<Instruction> {
 pub fn add_sp_e8(e8: u8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
     let offset = e8 as i8;
     let _ = cpu.registers.pc.wrapping_add(offset as u16);
-    // let r16 = cpu.stack_pointer;
-    // let hl = cpu.registers[Register16::HL];
-    // let Arith16Bit { sum, flags } = add_16bit(r16, hl, None);
-    // cpu.set_r16(Register16::HL, sum);
-    // cpu.flags.set(flags);
+    // TODO
+    cpu.registers.pc += 2;
     Ok(Instruction {
         mnemonic: Mnemonic::ADD,
         bytes: 2,
@@ -65,6 +63,7 @@ pub fn add_sp_e8(e8: u8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
 /// Decrement the value in register SP by 1.
 pub fn dec_sp(cpu: &mut Cpu) -> InstructionResult<Instruction> {
     cpu.registers.set_r16(R16::SP, cpu.registers.sp - 1);
+    cpu.registers.pc += 1;
     Ok(Instruction {
         mnemonic: Mnemonic::DEC,
         bytes: 1,
@@ -76,6 +75,7 @@ pub fn dec_sp(cpu: &mut Cpu) -> InstructionResult<Instruction> {
 /// Increment the value in register SP by 1
 pub fn inc_sp(cpu: &mut Cpu) -> InstructionResult<Instruction> {
     cpu.registers.set_r16(R16::SP, cpu.registers.sp + 1);
+    cpu.registers.pc += 1;
     Ok(Instruction {
         mnemonic: Mnemonic::INC,
         bytes: 1,
@@ -87,6 +87,7 @@ pub fn inc_sp(cpu: &mut Cpu) -> InstructionResult<Instruction> {
 /// Copy the value n16 into register SP.
 pub fn load_sp_n16(n16: u16, cpu: &mut Cpu) -> InstructionResult<Instruction> {
     cpu.registers.set_r16(R16::SP, n16);
+    cpu.registers.pc += 3;
     Ok(Instruction {
         mnemonic: Mnemonic::LD,
         bytes: 3,
@@ -101,6 +102,7 @@ pub fn load_a16_sp(n16: u16, cpu: &mut Cpu, mem: &mut Memory) -> InstructionResu
     let n16 = n16 as usize;
     mem.write(n16, (sp & 0xff) as u8);
     mem.write(n16 + 1, (sp >> 8) as u8);
+    cpu.registers.pc += 3;
     Ok(Instruction {
         mnemonic: Mnemonic::LD,
         bytes: 3,
@@ -111,12 +113,8 @@ pub fn load_a16_sp(n16: u16, cpu: &mut Cpu, mem: &mut Memory) -> InstructionResu
 /// LD HL,SP+e8
 /// Add the signed value e8 to SP and copy the result in HL.
 pub fn load_hl_sp_e8(e8: i8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
-    let sp = cpu.registers.sp;
-    let x: i16 = sp as i16 + e8 as i16;
-    let y = x.clamp(0, u16::MAX as i16) as u16;
-    cpu.registers.set_r16(R16::HL, y);
-    cpu.registers.flags.zero = false;
-    cpu.registers.flags.subtraction = false;
+    //TODO
+    cpu.registers.pc += 2;
     Ok(Instruction {
         mnemonic: Mnemonic::LD,
         bytes: 2,
@@ -129,6 +127,7 @@ pub fn load_hl_sp_e8(e8: i8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
 pub fn load_sp_hl(cpu: &mut Cpu) -> InstructionResult<Instruction> {
     let hl = cpu.registers.hl;
     cpu.registers.set_r16(R16::SP, hl);
+    cpu.registers.pc += 1;
     Ok(Instruction {
         mnemonic: Mnemonic::LD,
         bytes: 1,
@@ -142,7 +141,17 @@ pub fn load_sp_hl(cpu: &mut Cpu) -> InstructionResult<Instruction> {
 /// INC SP
 /// LD A, [SP]
 /// INC SP
-pub fn pop_af(cpu: &mut Cpu) -> InstructionResult<Instruction> {
+pub fn pop_af(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instruction> {
+    let low = mem.read(cpu.registers.sp as usize);
+    cpu.registers.flags.zero = low >> 7 == 1;
+    cpu.registers.flags.subtraction = low >> 6 == 1;
+    cpu.registers.flags.half_carry = low >> 5 == 1;
+    cpu.registers.flags.carry = low >> 4 == 1;
+    cpu.registers.set_r16(R16::SP, cpu.registers.sp + 1);
+    let high = mem.read(cpu.registers.sp as usize);
+    cpu.registers.set_r8(R8::A, high);
+    cpu.registers.set_r16(R16::SP, cpu.registers.sp + 1);
+    cpu.registers.pc += 1;
     Ok(Instruction {
         mnemonic: Mnemonic::POP,
         bytes: 1,
@@ -158,6 +167,7 @@ pub fn pop_af(cpu: &mut Cpu) -> InstructionResult<Instruction> {
 /// INC SP
 pub fn pop_r16(r16: R16, cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instruction> {
     pop_stack(r16, cpu, mem);
+    cpu.registers.pc += 1;
     Ok(Instruction {
         mnemonic: Mnemonic::POP,
         bytes: 1,
@@ -178,6 +188,7 @@ pub fn push_af(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instruction
     af |= (cpu.registers.flags.half_carry as u16) << 5;
     af |= (cpu.registers.flags.carry as u16) << 4;
     push_stack(af, cpu, mem);
+    cpu.registers.pc += 1;
     Ok(Instruction {
         mnemonic: Mnemonic::PUSH,
         bytes: 1,
@@ -193,13 +204,13 @@ pub fn push_af(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instruction
 /// LD [SP], LOW(r16)   ; C, E or L
 pub fn push_r16(r16: R16, cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instruction> {
     push_stack(cpu.registers.get_r16(r16), cpu, mem);
+    cpu.registers.pc += 1;
     Ok(Instruction {
         mnemonic: Mnemonic::PUSH,
         bytes: 1,
         cycles: 4,
     })
 }
-
 
 mod tests {
     use crate::instructions::add_a_n8;
@@ -208,7 +219,7 @@ mod tests {
 
     #[test]
     fn test_add_hl_sp() {
-        let mut cpu = Cpu::new(vec![]);
+        let mut cpu = Cpu::default();
         add_a_n8(20, &mut cpu).unwrap();
         assert_eq!(cpu.registers.flags.carry, false);
         assert_eq!(cpu.registers.flags.half_carry, false);
@@ -219,7 +230,7 @@ mod tests {
 
     #[test]
     fn test_push_af() {
-        let mut cpu = Cpu::new(vec![]);
+        let mut cpu = Cpu::default();
         let mut mem = Memory::default();
         push_af(&mut cpu, &mut mem).unwrap();
     }

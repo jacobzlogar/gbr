@@ -18,6 +18,7 @@ pub fn rl_r8(r8: R8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
     cpu.registers.flags.half_carry = false;
     cpu.registers.flags.carry = new_carry == 1;
     cpu.registers.set_r8(r8, shifted);
+    cpu.registers.pc += 2;
     Ok(Instruction {
         mnemonic: Mnemonic::RL,
         bytes: 2,
@@ -38,6 +39,7 @@ pub fn rl_hl(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instruction> 
     cpu.registers.flags.half_carry = false;
     cpu.registers.flags.carry = new_carry == 1;
     mem.write(hl as usize, shifted);
+    cpu.registers.pc += 2;
     Ok(Instruction {
         mnemonic: Mnemonic::RL,
         bytes: 2,
@@ -55,6 +57,7 @@ pub fn rla(cpu: &mut Cpu) -> InstructionResult<Instruction> {
     cpu.registers.flags.clear();
     cpu.registers.flags.carry = new_carry == 1;
     cpu.registers.a = shifted;
+    cpu.registers.pc += 1;
     Ok(Instruction {
         mnemonic: Mnemonic::RLA,
         bytes: 1,
@@ -86,6 +89,7 @@ pub fn rlc_r8(r8: R8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
     // carry flag is set to MSB of r8
     cpu.registers.flags.carry = msb == 1;
     cpu.registers.set_r8(r8, reg);
+    cpu.registers.pc += 2;
     Ok(Instruction {
         mnemonic: Mnemonic::RLC,
         bytes: 2,
@@ -113,6 +117,7 @@ pub fn rlc_hl(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instruction>
     // carry flag is updated to MSB of r8
     cpu.registers.flags.carry = msb == 1;
     mem.write(hl as usize, byte);
+    cpu.registers.pc += 2;
     Ok(Instruction {
         mnemonic: Mnemonic::RLC,
         bytes: 2,
@@ -136,6 +141,7 @@ pub fn rlca(cpu: &mut Cpu) -> InstructionResult<Instruction> {
     // carry flag is set to MSB of r8
     cpu.registers.flags.carry = msb == 1;
     cpu.registers.set_r8(R8::A, a);
+    cpu.registers.pc += 1;
     Ok(Instruction {
         mnemonic: Mnemonic::RLCA,
         bytes: 1,
@@ -164,6 +170,7 @@ pub fn rr_r8(r8: R8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
     // put r8 LSB into carry flag
     cpu.registers.flags.carry = lsb == 1;
     cpu.registers.set_r8(r8, reg);
+    cpu.registers.pc += 2;
     Ok(Instruction {
         mnemonic: Mnemonic::RR,
         bytes: 2,
@@ -185,6 +192,7 @@ pub fn rr_hl(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instruction> 
     cpu.registers.flags.half_carry = false;
     cpu.registers.flags.carry = lsb == 1;
     mem.write(hl as usize, byte);
+    cpu.registers.pc += 2;
     Ok(Instruction {
         mnemonic: Mnemonic::RR,
         bytes: 2,
@@ -205,6 +213,7 @@ pub fn rra(cpu: &mut Cpu) -> InstructionResult<Instruction> {
     cpu.registers.flags.half_carry = false;
     cpu.registers.flags.carry = lsb == 1;
     cpu.registers.set_r8(R8::A, a);
+    cpu.registers.pc += 1;
     Ok(Instruction {
         mnemonic: Mnemonic::RRA,
         bytes: 1,
@@ -225,6 +234,7 @@ pub fn rrc_r8(r8: R8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
     cpu.registers.flags.half_carry = false;
     cpu.registers.flags.carry = lsb == 1;
     cpu.registers.set_r8(r8, reg);
+    cpu.registers.pc += 2;
     Ok(Instruction {
         mnemonic: Mnemonic::RRC,
         bytes: 2,
@@ -248,6 +258,7 @@ pub fn rrc_hl(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instruction>
     cpu.registers.flags.half_carry = false;
     cpu.registers.flags.carry = lsb == 1;
     mem.write(hl as usize, byte);
+    cpu.registers.pc += 2;
     Ok(Instruction {
         mnemonic: Mnemonic::RRC,
         bytes: 2,
@@ -267,6 +278,7 @@ pub fn rrca(cpu: &mut Cpu) -> InstructionResult<Instruction> {
     cpu.registers.flags.half_carry = false;
     cpu.registers.flags.carry = lsb == 1;
     cpu.registers.set_r8(R8::A, a);
+    cpu.registers.pc += 1;
     Ok(Instruction {
         mnemonic: Mnemonic::RRCA,
         bytes: 1,
@@ -286,6 +298,7 @@ pub fn sla_r8(r8: R8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
     cpu.registers.flags.half_carry = false;
     cpu.registers.flags.carry = msb == 1;
     cpu.registers.set_r8(r8, reg);
+    cpu.registers.pc += 2;
     Ok(Instruction {
         mnemonic: Mnemonic::SLA,
         bytes: 2,
@@ -305,6 +318,7 @@ pub fn sla_hl(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instruction>
     cpu.registers.flags.half_carry = false;
     cpu.registers.flags.carry = msb == 1;
     mem.write(hl as usize, byte);
+    cpu.registers.pc += 2;
     Ok(Instruction {
         mnemonic: Mnemonic::SLA,
         bytes: 2,
@@ -326,6 +340,7 @@ pub fn sra_r8(r8: R8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
     cpu.registers.flags.half_carry = false;
     cpu.registers.flags.carry = lsb == 1;
     cpu.registers.set_r8(r8, reg);
+    cpu.registers.pc += 2;
     Ok(Instruction {
         mnemonic: Mnemonic::SRA,
         bytes: 2,
@@ -347,6 +362,7 @@ pub fn sra_hl(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instruction>
     cpu.registers.flags.half_carry = false;
     cpu.registers.flags.carry = lsb == 1;
     mem.write(hl as usize, byte);
+    cpu.registers.pc += 2;
     Ok(Instruction {
         mnemonic: Mnemonic::SRA,
         bytes: 2,
@@ -365,6 +381,7 @@ pub fn srl_r8(r8: R8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
     cpu.registers.flags.half_carry = false;
     cpu.registers.flags.carry = lsb == 1;
     cpu.registers.set_r8(r8, reg);
+    cpu.registers.pc += 2;
     Ok(Instruction {
         mnemonic: Mnemonic::SRL,
         bytes: 2,
@@ -384,6 +401,7 @@ pub fn srl_hl(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instruction>
     cpu.registers.flags.half_carry = false;
     cpu.registers.flags.carry = lsb == 1;
     mem.write(hl as usize, byte);
+    cpu.registers.pc += 2;
     Ok(Instruction {
         mnemonic: Mnemonic::SRL,
         bytes: 2,
@@ -401,6 +419,7 @@ pub fn swap_r8(r8: R8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
     cpu.registers.flags.half_carry = false;
     cpu.registers.flags.carry = false;
     cpu.registers.set_r8(r8, reg & 0xff);
+    cpu.registers.pc += 2;
     Ok(Instruction {
         mnemonic: Mnemonic::SWAP,
         bytes: 2,
@@ -419,6 +438,7 @@ pub fn swap_hl(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instruction
     cpu.registers.flags.half_carry = false;
     cpu.registers.flags.carry = false;
     mem.write(hl as usize, byte & 0xff);
+    cpu.registers.pc += 2;
     Ok(Instruction {
         mnemonic: Mnemonic::SWAP,
         bytes: 2,
@@ -434,7 +454,7 @@ mod tests {
 
     #[test]
     fn test_rl_r8() {
-        let mut cpu = Cpu::new(vec![]);
+        let mut cpu = Cpu::default();
         cpu.registers.b = 254;
         rl_r8(R8::B, &mut cpu).unwrap();
         assert_eq!(cpu.registers.b, 0xfd);
@@ -449,7 +469,7 @@ mod tests {
     #[test]
     fn test_rl_hl() {
         let mut mem = Memory::default();
-        let mut cpu = Cpu::new(vec![]);
+        let mut cpu = Cpu::default();
         cpu.registers.hl = 0x420;
         let hl = cpu.registers.hl;
         mem.write(hl as usize, 0xfe);
@@ -465,7 +485,7 @@ mod tests {
 
     #[test]
     fn test_rla() {
-        let mut cpu = Cpu::new(vec![]);
+        let mut cpu = Cpu::default();
         cpu.registers.set_r8(R8::A, 254);
         rla(&mut cpu).unwrap();
         assert_eq!(cpu.registers.a, 0xfd);
@@ -479,7 +499,7 @@ mod tests {
 
     #[test]
     fn test_rlc_r8() {
-        let mut cpu = Cpu::new(vec![]);
+        let mut cpu = Cpu::default();
         cpu.registers.set_r8(R8::B, 0x7f);
         rlc_r8(R8::B, &mut cpu).unwrap();
         assert_eq!(cpu.registers.get_r8(R8::B), 0xfe);
@@ -494,7 +514,7 @@ mod tests {
     #[test]
     fn test_rlc_hl() {
         let mut mem = Memory::default();
-        let mut cpu = Cpu::new(vec![]);
+        let mut cpu = Cpu::default();
         cpu.registers.hl = 0x420;
         let hl = cpu.registers.hl;
         mem.write(hl as usize, 0x7f);
@@ -522,7 +542,7 @@ mod tests {
 
     #[test]
     fn test_rlca() {
-        let mut cpu = Cpu::new(vec![]);
+        let mut cpu = Cpu::default();
         cpu.registers.a = 0x7f;
         rlca(&mut cpu).unwrap();
         assert_eq!(cpu.registers.a, 0xfe);
@@ -536,7 +556,7 @@ mod tests {
 
     #[test]
     fn test_rr_r8() {
-        let mut cpu = Cpu::new(vec![]);
+        let mut cpu = Cpu::default();
         cpu.registers.b = 0x3f;
         rr_r8(R8::B, &mut cpu).unwrap();
         assert_eq!(cpu.registers.b, 0x9f);
@@ -551,7 +571,7 @@ mod tests {
     #[test]
     fn test_rr_hl() {
         let mut mem = Memory::default();
-        let mut cpu = Cpu::new(vec![]);
+        let mut cpu = Cpu::default();
         cpu.registers.hl = 0x420;
         let hl = cpu.registers.hl;
         mem.write(hl as usize, 0x3f);
@@ -568,7 +588,7 @@ mod tests {
 
     #[test]
     fn test_rra() {
-        let mut cpu = Cpu::new(vec![]);
+        let mut cpu = Cpu::default();
         cpu.registers.a = 0x3f;
         rra(&mut cpu).unwrap();
         assert_eq!(cpu.registers.a, 0x9f);
@@ -581,7 +601,7 @@ mod tests {
     }
     #[test]
     fn test_sla_r8() {
-        let mut cpu = Cpu::new(vec![]);
+        let mut cpu = Cpu::default();
         cpu.registers.b = 0x3f;
         sla_r8(R8::B, &mut cpu).unwrap();
         assert_eq!(cpu.registers.b, 0x7e);
@@ -595,7 +615,7 @@ mod tests {
     #[test]
     fn test_sla_hl() {
         let mut mem = Memory::default();
-        let mut cpu = Cpu::new(vec![]);
+        let mut cpu = Cpu::default();
         cpu.registers.hl = 0x420;
         let hl = cpu.registers.hl;
         mem.write(hl as usize, 0x3f);
@@ -611,7 +631,7 @@ mod tests {
     }
     #[test]
     fn test_sra_r8() {
-        let mut cpu = Cpu::new(vec![]);
+        let mut cpu = Cpu::default();
         cpu.registers.b = 0x81;
         sra_r8(R8::B, &mut cpu).unwrap();
         assert_eq!(cpu.registers.b, 0xc0);
@@ -625,7 +645,7 @@ mod tests {
     #[test]
     fn test_sra_hl() {
         let mut mem = Memory::default();
-        let mut cpu = Cpu::new(vec![]);
+        let mut cpu = Cpu::default();
         cpu.registers.hl = 0x420;
         let hl = cpu.registers.hl;
         mem.write(hl as usize, 0x81);
@@ -640,7 +660,7 @@ mod tests {
     }
     #[test]
     fn test_srl_r8() {
-        let mut cpu = Cpu::new(vec![]);
+        let mut cpu = Cpu::default();
         cpu.registers.b = 0x80;
         srl_r8(R8::B, &mut cpu).unwrap();
         assert_eq!(cpu.registers.b, 0x40);
@@ -654,7 +674,7 @@ mod tests {
     #[test]
     fn test_srl_hl() {
         let mut mem = Memory::default();
-        let mut cpu = Cpu::new(vec![]);
+        let mut cpu = Cpu::default();
         cpu.registers.hl = 0x420;
         let hl = cpu.registers.hl;
         mem.write(hl as usize, 0x80);
@@ -669,7 +689,7 @@ mod tests {
     }
     #[test]
     fn test_swap_r8() {
-        let mut cpu = Cpu::new(vec![]);
+        let mut cpu = Cpu::default();
         cpu.registers.b = 0xf0;
         swap_r8(R8::B, &mut cpu).unwrap();
         assert_eq!(cpu.registers.b, 0xf);
@@ -684,7 +704,7 @@ mod tests {
     #[test]
     fn test_swap_hl() {
         let mut mem = Memory::default();
-        let mut cpu = Cpu::new(vec![]);
+        let mut cpu = Cpu::default();
         cpu.registers.hl = 0x420;
         let hl = cpu.registers.hl;
         mem.write(hl as usize, 0xf0);

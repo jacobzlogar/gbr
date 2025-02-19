@@ -1,5 +1,24 @@
+use interrupts::{Interrupt, *};
 use regions::*;
 use registers::*;
+
+use crate::{cartridge::CartridgeType, errors::SystemError};
+
+pub mod interrupts {
+    #[derive(Debug)]
+    pub enum Interrupt {
+        Joypad,
+        Serial,
+        Timer,
+        LCD,
+        VBlank
+    }
+    pub const VBLANK: u8 = 0x00;
+    pub const LCD: u8 = 0x02;
+    pub const TIMER: u8 = 0x04;
+    pub const SERIAL: u8 = 0x08;
+    pub const JOYPAD: u8 = 0x10;
+}
 
 // Registers
 pub mod registers {
@@ -74,7 +93,7 @@ pub mod regions {
     pub const INTERRUPT_ENABLE_REGISTER: usize = 0xffff;
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct Memory {
     // (* 8 65536) == ~.5mb so i guess it's not that bad
     pub block: [u8; 65536],
@@ -94,12 +113,56 @@ impl Memory {
     }
 
     pub fn timer_control(&self) -> TimerControl {
-        TimerControl::from(self.block[TAC])
+        // TODO: this shouldn't unwrap
+        TimerControl::try_from(self.block[TAC]).unwrap()
+    }
+
+    pub fn rom(&self) -> &[u8] {
+        &self.block[ROM_BANK_0_START..ROM_BANK_1_END]
+    }
+
+    pub fn interrupt_enable(&mut self) -> Option<Interrupt> {
+        println!("{:0x}", self.read(IE));
+        None
+        // match self.read(IE) {
+        //     0x04 => Some(Interrupt::Joypad),
+        //     0x03 => Some(Interrupt::Serial),
+        //     0x02 => Some(Interrupt::Timer),
+        //     0x01 => Some(Interrupt::LCD),
+        //     0x00 => Some(Interrupt::VBlank),
+        //     _ => None
+        // }
+    }
+
+    pub fn setup_rom(&mut self, rom: Vec<u8>, cartridge_type: CartridgeType) {
+        match cartridge_type {
+            CartridgeType::RomOnly => {
+                self.block[ROM_BANK_0_START..ROM_BANK_0_END]
+                    .copy_from_slice(&rom.as_slice()[ROM_BANK_0_START..ROM_BANK_0_END]);
+                self.block[ROM_BANK_1_START..ROM_BANK_1_END]
+                    .copy_from_slice(&rom.as_slice()[ROM_BANK_1_START..ROM_BANK_1_END]);
+            }
+            _ => (),
+        }
+    }
+
+    pub fn inc_tima(&mut self) {
+        let tima = self.read(TIMA);
+        // This timer is incremented at the clock frequency specified by the TAC register ($FF07). When the value overflows (exceeds $FF) it is reset to the value specified in TMA (FF06) and an interrupt is requested.
+        if tima == 0xff {
+            self.block[IE] = interrupts::TIMER;
+            self.block[TIMA] = self.read(TMA);
+        }
+        self.block[TIMA] += 1;
     }
 
     pub fn inc_div(&mut self) {
+        if self.block[DIV] == 0xff {
+            self.block[DIV] = 0;
+        }
         self.block[DIV] += 1;
     }
+
     // im not sure i'll actually end up using any of these, lol
     pub fn get_rom_bank_0(&self) -> &[u8] {
         &self.block[ROM_BANK_0_START..ROM_BANK_0_END]
@@ -107,6 +170,10 @@ impl Memory {
 
     pub fn get_rom_bank_1(&self) -> &[u8] {
         &self.block[ROM_BANK_1_START..ROM_BANK_1_END]
+    }
+
+    pub fn get_rom(&mut self) -> &[u8] {
+        &self.block[ROM_BANK_0_START..ROM_BANK_1_END]
     }
 
     pub fn get_vram(&self) -> &[u8] {
@@ -192,31 +259,49 @@ impl Default for Memory {
 }
 
 #[derive(Debug)]
-pub enum TimerFreq {
-    First(u32, u32, u32, u32),
-    Second(u32, u32, u32, u32),
-    Third(u32, u32, u32, u32),
-    Fourth(u32, u32, u32, u32),
-}
-
-#[derive(Debug)]
 pub struct TimerControl {
-    enable: bool,
-    clock_select: TimerFreq,
+    pub enable: bool,
+    pub increment: u16,
+    pub freq_single_speed: usize,
+    pub freq_sgb1: usize,
+    pub freq_double_speed: usize,
 }
 
-impl From<u8> for TimerControl {
-    fn from(value: u8) -> Self {
+impl TryFrom<u8> for TimerControl {
+    type Error = crate::errors::SystemError;
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
         let freq = value & 0x03;
-        let freq = match freq {
-            0 => TimerFreq::First(256, 4096, 4194, 8192),
-            1 => TimerFreq::Second(4, 262144, 268400, 524288),
-            2 => TimerFreq::Third(16, 65536, 67110, 131072),
-            _ => TimerFreq::First(64, 16384, 16780, 32768),
-        };
-        Self {
-            enable: value & 0x04 != 0,
-            clock_select: freq,
+        let enable = value & 0x04 != 0;
+        match freq {
+            0x00 => Ok(Self {
+                enable,
+                increment: 256,
+                freq_single_speed: 4096,
+                freq_sgb1: 4194,
+                freq_double_speed: 8192,
+            }),
+            0x01 => Ok(Self {
+                enable,
+                increment: 4,
+                freq_single_speed: 262144,
+                freq_sgb1: 268400,
+                freq_double_speed: 524288,
+            }),
+            0x02 => Ok(Self {
+                enable,
+                increment: 16,
+                freq_single_speed: 65536,
+                freq_sgb1: 67110,
+                freq_double_speed: 131072,
+            }),
+            0x03 => Ok(Self {
+                enable,
+                increment: 64,
+                freq_single_speed: 16384,
+                freq_sgb1: 16780,
+                freq_double_speed: 32768,
+            }),
+            _ => Err(SystemError::TimerControlError),
         }
     }
 }
