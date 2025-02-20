@@ -17,8 +17,9 @@ pub fn ld_r8_r8(
     dest: R8,
     cpu: &mut Cpu,
 ) -> InstructionResult<Instruction> {
-    let source = cpu.registers.get_r8(source);
-    cpu.registers.set_r8(dest, source);
+    let src = cpu.registers.get_r8(source);
+    // println!("load {dest:?}, {source:?}: 0x{src:0x}");
+    cpu.registers.set_r8(dest, src);
     cpu.registers.pc += 1;
     Ok(Instruction {
         mnemonic: Mnemonic::LD,
@@ -30,6 +31,7 @@ pub fn ld_r8_r8(
 /// LD r8, n8
 /// Copy the value n8 into register r8.
 pub fn ld_r8_n8(r8: R8, n8: u8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
+    println!("load {r8:?}, 0x{n8:0x}");
     cpu.registers.set_r8(r8, n8);
     cpu.registers.pc += 2;
     Ok(Instruction {
@@ -42,6 +44,7 @@ pub fn ld_r8_n8(r8: R8, n8: u8, cpu: &mut Cpu) -> InstructionResult<Instruction>
 /// LD r16, n16
 /// Copy the value n16 into register r16.
 pub fn ld_r16_n16(r16: R16, n16: u16, cpu: &mut Cpu) -> InstructionResult<Instruction> {
+    println!("load {r16:?}, 0x{n16:0x}");
     cpu.registers.set_r16(r16, n16);
     cpu.registers.pc += 3;
     Ok(Instruction {
@@ -83,6 +86,7 @@ pub fn ld_n8_hl(n8: u8, cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<In
 pub fn ld_hl_r8(r8: R8, cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instruction> {
     let hl = cpu.registers.hl;
     let byte = mem.read(hl as usize);
+    println!("load {byte:?} into {r8:?}");
     cpu.registers.set_r8(r8, byte);
     cpu.registers.pc += 2;
     Ok(Instruction {
@@ -140,7 +144,6 @@ pub fn ldh_a_immed_n16(
     mem: &mut Memory,
 ) -> InstructionResult<Instruction> {
     let byte = mem.read(n16 as usize);
-    println!("{byte:08b}");
     if (0xff00..=0xfff).contains(&n16) {
         cpu.registers.set_r8(R8::A, byte);
         cpu.registers.a = byte;
@@ -175,7 +178,6 @@ pub fn ldh_immed_n16_a(
 /// LDH A, [C]
 /// Copy the byte at address $FF00+C into register A.
 pub fn ldh_a_c(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instruction> {
-    println!("hello?");
     let c = cpu.registers.c;
     let byte = mem.read(0xff00 + c as usize);
     cpu.registers.set_r8(R8::A, byte);

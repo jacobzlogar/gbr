@@ -60,7 +60,13 @@ pub const INSTRUCTION_SET: [InstructionFn; 256] = [
     |ctx| rrca(ctx.cpu),
     // row 2
     |ctx| stop(ctx.memory),
-    |ctx| ld_r16_n16(R16::DE, get_u16(&mut ctx.iter)?, ctx.cpu),
+    |ctx| {
+        let instr = ld_r16_n16(R16::DE, get_u16(&mut ctx.iter)?, ctx.cpu);
+        let de = ctx.cpu.registers.de as usize;
+        println!("de points to: {:0x}", ctx.memory.read(de));
+        println!("de + 1 points to: {:0x}", ctx.memory.read(de + 1));
+        return instr;
+    },
     |ctx| ld_immed_r16_a(R16::DE, ctx.cpu, ctx.memory),
     |ctx| inc_r16(R16::DE, ctx.cpu),
     |ctx| inc_r8(R8::D, ctx.cpu),

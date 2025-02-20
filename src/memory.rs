@@ -1,4 +1,4 @@
-use interrupts::{Interrupt, *};
+use interrupts::Interrupt;
 use regions::*;
 use registers::*;
 
@@ -13,11 +13,25 @@ pub mod interrupts {
         LCD,
         VBlank
     }
-    pub const VBLANK: u8 = 0x00;
-    pub const LCD: u8 = 0x02;
-    pub const TIMER: u8 = 0x04;
-    pub const SERIAL: u8 = 0x08;
-    pub const JOYPAD: u8 = 0x10;
+
+    impl Interrupt {
+        pub fn get_interrupt(value: &u8) -> Option<Self> {
+            match value {
+                0x04 => Some(Interrupt::Joypad),
+                0x03 => Some(Interrupt::Serial),
+                0x02 => Some(Interrupt::Timer),
+                0x01 => Some(Interrupt::LCD),
+                0x00 => Some(Interrupt::VBlank),
+                _ => None
+            }
+        }
+    }
+    pub const TIMER: u8 = 0x02;
+    // pub const VBLANK: u8 = 0x00;
+    // pub const LCD: u8 = 0x02;
+    // pub const TIMER: u8 = 0x04;
+    // pub const SERIAL: u8 = 0x08;
+    // pub const JOYPAD: u8 = 0x10;
 }
 
 // Registers
@@ -108,6 +122,14 @@ impl Memory {
         self.block[addr] = value;
     }
 
+    pub fn inc_scanline(&mut self) {
+        let ly = self.read(LY);
+        self.write(LY, ly + 1);
+        if self.read(LY) == 153 {
+            self.write(LY, 0);
+        }
+    }
+
     pub fn lcd_status(&self) -> LcdStatus {
         LcdStatus::from(self.block[STAT])
     }
@@ -119,19 +141,6 @@ impl Memory {
 
     pub fn rom(&self) -> &[u8] {
         &self.block[ROM_BANK_0_START..ROM_BANK_1_END]
-    }
-
-    pub fn interrupt_enable(&mut self) -> Option<Interrupt> {
-        println!("{:0x}", self.read(IE));
-        None
-        // match self.read(IE) {
-        //     0x04 => Some(Interrupt::Joypad),
-        //     0x03 => Some(Interrupt::Serial),
-        //     0x02 => Some(Interrupt::Timer),
-        //     0x01 => Some(Interrupt::LCD),
-        //     0x00 => Some(Interrupt::VBlank),
-        //     _ => None
-        // }
     }
 
     pub fn setup_rom(&mut self, rom: Vec<u8>, cartridge_type: CartridgeType) {
@@ -163,7 +172,6 @@ impl Memory {
         self.block[DIV] += 1;
     }
 
-    // im not sure i'll actually end up using any of these, lol
     pub fn get_rom_bank_0(&self) -> &[u8] {
         &self.block[ROM_BANK_0_START..ROM_BANK_0_END]
     }
@@ -247,7 +255,7 @@ impl Default for Memory {
         mem.write(STAT, 0x81);
         mem.write(SCY, 0x00);
         mem.write(SCX, 0x00);
-        mem.write(LY, 0x91);
+        mem.write(LY, 0x00);
         mem.write(LYC, 0x00);
         mem.write(DMA, 0xff);
         mem.write(BGP, 0xfc);
@@ -306,6 +314,7 @@ impl TryFrom<u8> for TimerControl {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct LcdStatus {
     lyc_int_select: bool,

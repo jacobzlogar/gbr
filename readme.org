@@ -23,18 +23,20 @@
 TODO:
 - [x] decide what to do with the ~Thunk~ type param signature, if i refactor this it means changing all of the dispatch table params as well
 - [x] create prefix table for bitwise ops dispatched from 0xcb
-- [x] bitshift instructions
-- [x] loadh immed -> a
-- [x] jump/subroutine instructions
-- [x] carry flag instructions
-- [ ] stack manipulation instructions
+- Decoding:
+  - [x] bitshift instructions
+  - [x] loadh immed -> a
+  - [x] jump/subroutine instructions
+  - [x] carry flag instructions
+  - [ ] stack manipulation instructions
   - e8 instructions
-- [ ] halt instruction
-- [ ] DAA 
-
-
-Timing:
-- how does DIV affect other timing registers?
-
-rendering
-- render logo with sdl3
+  - [ ] halt instruction
+  - [ ] DAA 
+- Timing
+  - the clock speed of the GB is 4.19mhz or 4194304
+  - 1 frame takes 70224 dots and there are ~60 frames per second
+  - there are 154 scanlines in a frame
+  - each scanline takes 456 dots
+  - a t-cycle is the base unit of time, a dot is 4 t-cycles
+  - LY starts at 0 and increments up to 143, scanlines 144->153 are vblank
+  - reset LY at scanline 153

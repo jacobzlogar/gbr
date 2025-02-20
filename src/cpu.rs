@@ -3,7 +3,7 @@ use crate::{
     memory::Memory,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum Condition {
     NotZero,
     NotCarry,

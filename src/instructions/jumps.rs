@@ -30,11 +30,17 @@ pub fn call_cc_n16(
     if cc(cpu, condition) {
         push_stack(cpu.registers.pc + 3, cpu, mem);
         cpu.registers.set_r16(R16::PC, n16);
+        return Ok(Instruction {
+            mnemonic: Mnemonic::CALL,
+            bytes: 3,
+            cycles: 6
+        })
     }
+    cpu.registers.pc += 3;
     Ok(Instruction {
         mnemonic: Mnemonic::CALL,
         bytes: 3,
-        cycles: 6,
+        cycles: 3,
     })
 }
 
@@ -52,7 +58,6 @@ pub fn jp_hl(cpu: &mut Cpu) -> InstructionResult<Instruction> {
 /// JP n16
 /// Jump to address n16; effectively, copy n16 into PC.
 pub fn jp_n16(n16: u16, cpu: &mut Cpu) -> InstructionResult<Instruction> {
-    println!("jump to: {n16}");
     cpu.registers.set_r16(R16::PC, n16);
     Ok(Instruction {
         mnemonic: Mnemonic::JP,
@@ -64,13 +69,19 @@ pub fn jp_n16(n16: u16, cpu: &mut Cpu) -> InstructionResult<Instruction> {
 /// JP cc, n16
 /// Jump to address n16 if condition cc is met.
 pub fn jp_cc_n16(n16: u16, condition: Condition, cpu: &mut Cpu) -> InstructionResult<Instruction> {
-    if cc(cpu, condition) {
+    if cc(cpu, condition.clone()) {
         cpu.registers.set_r16(R16::PC, n16);
+        return Ok(Instruction {
+            mnemonic: Mnemonic::JP,
+            bytes: 3,
+            cycles: 4
+        });
     }
+    cpu.registers.pc += 3;
     Ok(Instruction {
         mnemonic: Mnemonic::JP,
-        bytes: 1,
-        cycles: 1,
+        bytes: 3,
+        cycles: 3,
     })
 }
 
@@ -95,11 +106,17 @@ pub fn jr_cc_n16(e8: u8, condition: Condition, cpu: &mut Cpu) -> InstructionResu
         let offset = e8 as i8;
         cpu.registers
             .set_r16(R16::PC, cpu.registers.pc.wrapping_add(offset as u16));
+        return Ok(Instruction {
+            mnemonic: Mnemonic::JR,
+            bytes: 2,
+            cycles: 3,
+        });
     }
+    cpu.registers.pc += 2;
     Ok(Instruction {
         mnemonic: Mnemonic::JR,
         bytes: 2,
-        cycles: 3,
+        cycles: 2,
     })
 }
 
@@ -112,11 +129,17 @@ pub fn ret_cc(
 ) -> InstructionResult<Instruction> {
     if cc(cpu, condition) {
         pop_stack(R16::PC, cpu, mem);
+        return Ok(Instruction {
+            mnemonic: Mnemonic::RET,
+            bytes: 1,
+            cycles: 5,
+        });
     }
+    cpu.registers.pc += 1;
     Ok(Instruction {
         mnemonic: Mnemonic::RET,
         bytes: 1,
-        cycles: 5,
+        cycles: 2,
     })
 }
 

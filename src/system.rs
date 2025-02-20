@@ -11,17 +11,9 @@ use sdl3::{
 };
 
 use crate::{
-    DecodeContext,
-    apu::Apu,
-    cartridge::Cartridge,
-    clock::Clock,
-    cpu::Cpu,
-    display::Ppu,
-    errors::{CartridgeError, SystemError},
-    memory::{
-        Memory,
-        registers::{DIV, IE, TMA},
-    },
+    apu::Apu, cartridge::Cartridge, clock::Clock, cpu::Cpu, display::Ppu, errors::{CartridgeError, SystemError}, memory::{
+        interrupts::Interrupt, registers::{DIV, IE, LY, TMA}, Memory
+    }, DecodeContext
 };
 
 pub struct System {
@@ -39,7 +31,7 @@ impl System {
         let mut mem = Memory::default();
         let cartridge =
             Cartridge::new(rom.clone(), &mut mem).map_err(|_| SystemError::CartridgeError)?;
-        let ppu = Ppu::new(&cartridge.title);
+        let ppu = Ppu::new();
         let cpu = Cpu::default();
         Ok(Self {
             cpu,
@@ -52,23 +44,17 @@ impl System {
     }
 
     fn handle_interrupts(&mut self) {
-        if let Some(interrupt) = self.mem.interrupt_enable() {
-            println!("{:?}", interrupt);
+        if let Some(interrupt) = Interrupt::get_interrupt(self.mem.get_interrupt_registers()) {
+            println!("{:?} {}", interrupt, self.clock.t_cycles);
         }
     }
 
     pub fn execute(&mut self) -> ! {
         loop {
             self.clock.tick(&mut self.mem);
-            // execute instructions
-            let cpu_cycles = self.cpu.execute(&mut self.mem).unwrap() as usize;
-            self.clock.m_cycles += cpu_cycles;
-            // self.clock.master_clock += cpu_cycles as u64;
-            // process audio
-            self.apu.process();
-            // handle interrupts
-            self.handle_interrupts();
-            // self.ppu.canvas.clear();
+            self.clock.t_cycles += self.cpu.execute(&mut self.mem).unwrap() as usize;
+            //self.handle_interrupts();
+            self.ppu.render_scanline(&mut self.mem, &self.clock);
         }
         // println!("{:?}", self.cartridge);
         // self.ppu.canvas.set_draw_color(Color::WHITE);
@@ -77,7 +63,7 @@ impl System {
         // 'running: loop {
         //     self.clock.tick(&mut self.mem);
         //     // execute instructions
-        //     let _cpu_cycles = self.cpu.execute(&mut self.mem).unwrap();
+        //     self.clock.m_cycles += self.cpu.execute(&mut self.mem).unwrap() as usize;
         //     // process audio
         //     self.apu.process();
         //     // handle interrupts

@@ -8,6 +8,7 @@ use sdl3::video::Window;
 use sdl3::{Error, EventPump};
 use sdl3::{event::Event, pixels::Color, rect::Point};
 
+use crate::clock::Clock;
 use crate::memory::Memory;
 /// ```ignore
 /// These modes represent the modes the PPU cycles between during a frame
@@ -31,44 +32,48 @@ pub enum PpuMode {
     OAMScan,         // searching for OBJS which overlap this line
     Drawing,         // sending pixels to the LCD
 }
-const WINDOW_WIDTH: u32 = 640;
-const WINDOW_HEIGHT: u32 = 480;
-const NUM_POINTS: usize = 500;
 
+#[allow(dead_code)]
 pub struct Ppu {
     // pub canvas: Canvas<Window>,
     // pub event_pump: EventPump,
     scanline: u16,
+    mode: PpuMode,
 }
 
-// impl Default for Ppu {
-// }
-
 impl Ppu {
-    pub fn new(title: &String) -> Self {
+    pub fn new() -> Self {
         // let (canvas, event_pump) = setup_ctx(title).unwrap();
         Self {
             scanline: 0,
+            mode: PpuMode::OAMScan,
             // canvas,
             // event_pump,
         }
     }
-    pub fn render_scanline(&mut self, mem: &mut Memory) -> () {}
+    pub fn render_scanline(&mut self, mem: &mut Memory, clock: &Clock) {
+        // match clock.dots {
+        //     81.. => {
+        //         self.mode = PpuMode::Drawing
+        //     },
+        //     _ => {}
+        // }
+    }
 }
 
-pub fn setup_ctx(title: &String) -> Result<(Canvas<Window>, EventPump), Error> {
-    let sdl_context = sdl3::init()?;
-    let video_subsystem = sdl_context.video()?;
-    let window = video_subsystem
-        .window(
-            //&title,
-            "test",
-            WINDOW_WIDTH,
-            WINDOW_HEIGHT,
-        )
-        .position_centered()
-        .build()
-        .unwrap();
+// pub fn setup_ctx(title: &String) -> Result<(Canvas<Window>, EventPump), Error> {
+//     let sdl_context = sdl3::init()?;
+//     let video_subsystem = sdl_context.video()?;
+//     let window = video_subsystem
+//         .window(
+//             // &title,
+//             "test",
+//             WINDOW_WIDTH,
+//             WINDOW_HEIGHT,
+//         )
+//         .position_centered()
+//         .build()
+//         .unwrap();
 
-    Ok((window.into_canvas(), sdl_context.event_pump()?))
-}
+//     Ok((window.into_canvas(), sdl_context.event_pump()?))
+// }
