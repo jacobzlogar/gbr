@@ -1,5 +1,3 @@
-use std::{fmt::Debug, io::Read};
-
 use sdl3::{
     event::Event,
     iostream::IOStream,
@@ -49,38 +47,32 @@ impl System {
         }
     }
 
-    pub fn execute(&mut self) -> ! {
-        loop {
+    pub fn execute(&mut self) {
+        println!("{:?}", self.cartridge);
+        self.ppu.canvas.set_draw_color(Color::WHITE);
+        self.ppu.canvas.clear();
+        self.ppu.canvas.present();
+        'running: loop {
             self.clock.tick(&mut self.mem);
+            // execute instructions
             self.clock.t_cycles += self.cpu.execute(&mut self.mem).unwrap() as usize;
-            //self.handle_interrupts();
-            self.ppu.render_scanline(&mut self.mem, &self.clock);
+            // process audio
+            self.apu.process();
+            // handle interrupts
+            self.handle_interrupts();
+            // self.ppu.canvas.clear();
+            for event in self.ppu.event_pump.poll_iter() {
+                match event {
+                    Event::Quit { .. }
+                    | Event::KeyDown {
+                        keycode: Some(Keycode::Escape),
+                        ..
+                    } => break 'running,
+                    _ => {}
+                }
+            }
+            // draw the canvas
+            self.ppu.canvas.present();
         }
-        // println!("{:?}", self.cartridge);
-        // self.ppu.canvas.set_draw_color(Color::WHITE);
-        // self.ppu.canvas.clear();
-        // self.ppu.canvas.present();
-        // 'running: loop {
-        //     self.clock.tick(&mut self.mem);
-        //     // execute instructions
-        //     self.clock.m_cycles += self.cpu.execute(&mut self.mem).unwrap() as usize;
-        //     // process audio
-        //     self.apu.process();
-        //     // handle interrupts
-        //     self.handle_interrupts();
-        //     // self.ppu.canvas.clear();
-        //     for event in self.ppu.event_pump.poll_iter() {
-        //         match event {
-        //             Event::Quit { .. }
-        //             | Event::KeyDown {
-        //                 keycode: Some(Keycode::Escape),
-        //                 ..
-        //             } => break 'running,
-        //             _ => {}
-        //         }
-        //     }
-        //     // draw the canvas
-        //     // self.ppu.canvas.present();
-        // }
     }
 }

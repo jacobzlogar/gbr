@@ -1,12 +1,8 @@
 extern crate sdl3;
 
-use rand::Rng;
-use sdl3::keyboard::Keycode;
-use sdl3::rect::Rect;
-use sdl3::render::{Canvas, FRect};
+use sdl3::render::Canvas;
 use sdl3::video::Window;
 use sdl3::{Error, EventPump};
-use sdl3::{event::Event, pixels::Color, rect::Point};
 
 use crate::clock::Clock;
 use crate::memory::Memory;
@@ -35,20 +31,20 @@ pub enum PpuMode {
 
 #[allow(dead_code)]
 pub struct Ppu {
-    // pub canvas: Canvas<Window>,
-    // pub event_pump: EventPump,
+    pub canvas: Canvas<Window>,
+    pub event_pump: EventPump,
     scanline: u16,
     mode: PpuMode,
 }
 
 impl Ppu {
     pub fn new() -> Self {
-        // let (canvas, event_pump) = setup_ctx(title).unwrap();
+        let (canvas, event_pump) = setup_ctx().unwrap();
         Self {
             scanline: 0,
             mode: PpuMode::OAMScan,
-            // canvas,
-            // event_pump,
+            canvas,
+            event_pump,
         }
     }
     pub fn render_scanline(&mut self, mem: &mut Memory, clock: &Clock) {
@@ -61,19 +57,18 @@ impl Ppu {
     }
 }
 
-// pub fn setup_ctx(title: &String) -> Result<(Canvas<Window>, EventPump), Error> {
-//     let sdl_context = sdl3::init()?;
-//     let video_subsystem = sdl_context.video()?;
-//     let window = video_subsystem
-//         .window(
-//             // &title,
-//             "test",
-//             WINDOW_WIDTH,
-//             WINDOW_HEIGHT,
-//         )
-//         .position_centered()
-//         .build()
-//         .unwrap();
+pub fn setup_ctx() -> Result<(Canvas<Window>, EventPump), Error> {
+    let sdl_context = sdl3::init()?;
+    let video_subsystem = sdl_context.video()?;
+    let window = video_subsystem
+        .window(
+            "test",
+            640,
+            480,
+        )
+        .position_centered()
+        .build()
+        .unwrap();
 
-//     Ok((window.into_canvas(), sdl_context.event_pump()?))
-// }
+    Ok((window.into_canvas(), sdl_context.event_pump()?))
+}
