@@ -29,7 +29,8 @@ pub fn daa(cpu: &mut Cpu) -> InstructionResult<Instruction> {
 
 /// NOP
 /// No OPeration.
-pub fn nop() -> InstructionResult<Instruction> {
+pub fn nop(cpu: &mut Cpu) -> InstructionResult<Instruction> {
+    cpu.registers.pc += 1;
     Ok(Instruction {
         mnemonic: Mnemonic::NOP,
         bytes: 1,
@@ -41,8 +42,9 @@ pub fn nop() -> InstructionResult<Instruction> {
 /// Enter CPU very low power mode. Also used to switch between GBC double speed and normal speed CPU modes.
 /// The exact behavior of this instruction is fragile and may interpret its second byte as a separate instruction (see the Pan Docs),
 /// which is why rgbasm(1) allows explicitly specifying the second byte (STOP n8) to override the default of $00 (a NOP instruction).
-pub fn stop(mem: &mut Memory) -> InstructionResult<Instruction> {
+pub fn stop(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instruction> {
     mem.write(DIV, 0);
+    cpu.registers.pc += 2;
     Ok(Instruction {
         mnemonic: Mnemonic::STOP,
         bytes: 2,

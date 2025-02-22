@@ -29,12 +29,11 @@ pub enum PpuMode {
     Drawing,         // sending pixels to the LCD
 }
 
-#[allow(dead_code)]
 pub struct Ppu {
     pub canvas: Canvas<Window>,
     pub event_pump: EventPump,
-    scanline: u16,
-    mode: PpuMode,
+    pub scanline: u16,
+    pub mode: PpuMode,
 }
 
 impl Ppu {
@@ -61,11 +60,7 @@ pub fn setup_ctx() -> Result<(Canvas<Window>, EventPump), Error> {
     let sdl_context = sdl3::init()?;
     let video_subsystem = sdl_context.video()?;
     let window = video_subsystem
-        .window(
-            "test",
-            640,
-            480,
-        )
+        .window("test", 640, 480)
         .position_centered()
         .build()
         .unwrap();

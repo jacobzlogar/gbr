@@ -42,7 +42,7 @@ pub type InstructionResult<T> = std::result::Result<T, DecodeError>;
 /// https://gbdev.io/gb-opcodes/optables/#standard
 pub const INSTRUCTION_SET: [InstructionFn; 256] = [
     // row 1
-    |_| nop(),
+    |ctx| nop(ctx.cpu),
     |ctx| ld_r16_n16(R16::BC, get_u16(&mut ctx.iter)?, ctx.cpu),
     |ctx| ld_immed_r16_a(R16::BC, ctx.cpu, ctx.memory),
     |ctx| inc_r16(R16::BC, ctx.cpu),
@@ -59,14 +59,8 @@ pub const INSTRUCTION_SET: [InstructionFn; 256] = [
     |ctx| ld_r8_n8(R8::C, get_u8(&mut ctx.iter)?, ctx.cpu),
     |ctx| rrca(ctx.cpu),
     // row 2
-    |ctx| stop(ctx.memory),
-    |ctx| {
-        let instr = ld_r16_n16(R16::DE, get_u16(&mut ctx.iter)?, ctx.cpu);
-        let de = ctx.cpu.registers.de as usize;
-        println!("de points to: {:0x}", ctx.memory.read(de));
-        println!("de + 1 points to: {:0x}", ctx.memory.read(de + 1));
-        return instr;
-    },
+    |ctx| stop(ctx.cpu, ctx.memory),
+    |ctx| ld_r16_n16(R16::DE, get_u16(&mut ctx.iter)?, ctx.cpu),
     |ctx| ld_immed_r16_a(R16::DE, ctx.cpu, ctx.memory),
     |ctx| inc_r16(R16::DE, ctx.cpu),
     |ctx| inc_r8(R8::D, ctx.cpu),
@@ -342,7 +336,7 @@ pub const INSTRUCTION_SET: [InstructionFn; 256] = [
     |ctx| load_hl_sp_e8(get_i8(&mut ctx.iter)?, ctx.cpu),
     |ctx| load_sp_hl(ctx.cpu),
     |ctx| ld_immed_n16_a(get_u16(&mut ctx.iter)?, ctx.cpu, ctx.memory),
-    |_| ei(),
+    |ctx| ei(ctx.cpu),
     |_| Err(DecodeError::InvalidOpcodeByte(0xfc)),
     |_| Err(DecodeError::InvalidOpcodeByte(0xfd)),
     |ctx| cp_a_n8(get_u8(&mut ctx.iter)?, ctx.cpu),

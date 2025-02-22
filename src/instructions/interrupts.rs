@@ -17,7 +17,8 @@ pub fn di(cpu: &mut Cpu) -> InstructionResult<Instruction> {
 /// EI
 /// Enable Interrupts by setting the IME flag.
 /// The flag is only set after the instruction following EI.
-pub fn ei() -> InstructionResult<Instruction> {
+pub fn ei(cpu: &mut Cpu) -> InstructionResult<Instruction> {
+    cpu.registers.pc += 1;
     Ok(Instruction {
         mnemonic: Mnemonic::EI,
         bytes: 1,

@@ -10,8 +10,9 @@ use super::{Condition, Instruction, InstructionResult, pop_stack, push_stack};
 /// Call address n16.
 /// This pushes the address of the instruction after the CALL on the stack, such that RET can pop it later; then, it executes an implicit JP n16.
 pub fn call_n16(n16: u16, cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instruction> {
+    println!("CALL {n16:0x}");
     push_stack(cpu.registers.pc + 3, cpu, mem);
-    cpu.registers.set_r16(R16::PC, n16);
+    cpu.registers.pc = n16;
     Ok(Instruction {
         mnemonic: Mnemonic::CALL,
         bytes: 3,
@@ -29,12 +30,12 @@ pub fn call_cc_n16(
 ) -> InstructionResult<Instruction> {
     if cc(cpu, condition) {
         push_stack(cpu.registers.pc + 3, cpu, mem);
-        cpu.registers.set_r16(R16::PC, n16);
+        cpu.registers.pc = n16;
         return Ok(Instruction {
             mnemonic: Mnemonic::CALL,
             bytes: 3,
-            cycles: 6
-        })
+            cycles: 6,
+        });
     }
     cpu.registers.pc += 3;
     Ok(Instruction {
@@ -47,7 +48,7 @@ pub fn call_cc_n16(
 /// JP HL
 /// Jump to address in HL; effectively, copy the value in register HL into PC.
 pub fn jp_hl(cpu: &mut Cpu) -> InstructionResult<Instruction> {
-    cpu.registers.set_r16(R16::PC, cpu.registers.hl);
+    cpu.registers.pc = cpu.registers.hl;
     Ok(Instruction {
         mnemonic: Mnemonic::JP,
         bytes: 1,
@@ -58,7 +59,7 @@ pub fn jp_hl(cpu: &mut Cpu) -> InstructionResult<Instruction> {
 /// JP n16
 /// Jump to address n16; effectively, copy n16 into PC.
 pub fn jp_n16(n16: u16, cpu: &mut Cpu) -> InstructionResult<Instruction> {
-    cpu.registers.set_r16(R16::PC, n16);
+    cpu.registers.pc = n16;
     Ok(Instruction {
         mnemonic: Mnemonic::JP,
         bytes: 3,
@@ -70,11 +71,11 @@ pub fn jp_n16(n16: u16, cpu: &mut Cpu) -> InstructionResult<Instruction> {
 /// Jump to address n16 if condition cc is met.
 pub fn jp_cc_n16(n16: u16, condition: Condition, cpu: &mut Cpu) -> InstructionResult<Instruction> {
     if cc(cpu, condition.clone()) {
-        cpu.registers.set_r16(R16::PC, n16);
+        cpu.registers.pc = n16;
         return Ok(Instruction {
             mnemonic: Mnemonic::JP,
             bytes: 3,
-            cycles: 4
+            cycles: 4,
         });
     }
     cpu.registers.pc += 3;
@@ -129,6 +130,7 @@ pub fn ret_cc(
 ) -> InstructionResult<Instruction> {
     if cc(cpu, condition) {
         pop_stack(R16::PC, cpu, mem);
+        cpu.registers.pc += 1;
         return Ok(Instruction {
             mnemonic: Mnemonic::RET,
             bytes: 1,
@@ -147,6 +149,7 @@ pub fn ret_cc(
 /// Return from subroutine. This is basically a POP PC (if such an instruction existed). See POP r16 for an explanation of how POP works
 pub fn ret(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instruction> {
     pop_stack(R16::PC, cpu, mem);
+    cpu.registers.pc += 1;
     Ok(Instruction {
         mnemonic: Mnemonic::RET,
         bytes: 1,
@@ -158,6 +161,7 @@ pub fn ret(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instruction> {
 /// Return from subroutine and enable interrupts. This is basically equivalent to executing EI then RET, meaning that IME is set right after this instruction.
 pub fn reti(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instruction> {
     pop_stack(R16::PC, cpu, mem);
+    cpu.registers.pc += 1;
     Ok(Instruction {
         mnemonic: Mnemonic::RETI,
         bytes: 1,
@@ -240,7 +244,7 @@ mod tests {
         assert_eq!(cpu.registers.pc, 0x00fc);
         cpu.registers.set_r16(R16::PC, 0x0100);
         jr_cc_n16(0xfc, Condition::NotCarry, &mut cpu).unwrap();
-        assert_eq!(cpu.registers.pc, 0x0100);
+        assert_eq!(cpu.registers.pc, 0x0102);
     }
 
     #[test]
@@ -249,7 +253,7 @@ mod tests {
         let mut mem = Memory::default();
         push_stack(cpu.registers.pc + 3, &mut cpu, &mut mem);
         ret_cc(Condition::Carry, &mut cpu, &mut mem).unwrap();
-        assert_eq!(cpu.registers.pc, 0x103);
+        assert_eq!(cpu.registers.pc, 0x104);
     }
 
     #[test]

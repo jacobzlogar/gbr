@@ -19,6 +19,13 @@
 - http://gbdev.gg8.se/wiki/articles/Pan_Docs
 - http://gbdev.gg8.se/wiki/articles/The_Cartridge_Header
 
+- the clock speed of the GB is 4.19mhz or 4194304
+- 1 frame takes 70224 dots and there are ~60 frames per second
+- there are 154 scanlines in a frame
+- each scanline takes 456 dots
+- a t-cycle is the base unit of time, a dot is 4 t-cycles
+- LY starts at 0 and increments up to 143, scanlines 144->153 are vblank
+- reset LY at scanline 153
 
 TODO:
 - [x] decide what to do with the ~Thunk~ type param signature, if i refactor this it means changing all of the dispatch table params as well
@@ -32,11 +39,10 @@ TODO:
   - e8 instructions
   - [ ] halt instruction
   - [ ] DAA 
-- Timing
-  - the clock speed of the GB is 4.19mhz or 4194304
-  - 1 frame takes 70224 dots and there are ~60 frames per second
-  - there are 154 scanlines in a frame
-  - each scanline takes 456 dots
-  - a t-cycle is the base unit of time, a dot is 4 t-cycles
-  - LY starts at 0 and increments up to 143, scanlines 144->153 are vblank
-  - reset LY at scanline 153
+- Timing:
+  - [ ] 
+- Interrupts:
+  - [ ] figure out how to coordinate interrupts
+- Rendering:
+  - [ ] 
+   

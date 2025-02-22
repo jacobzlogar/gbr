@@ -1,3 +1,4 @@
+#![allow(warnings)]
 use crate::errors::DecodeError;
 use cpu::{Condition, Cpu};
 use instructions::{Instruction, InstructionResult};

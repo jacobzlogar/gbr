@@ -10,8 +10,8 @@ pub mod interrupts {
         Joypad,
         Serial,
         Timer,
-        LCD,
-        VBlank
+        Stat,
+        VBlank,
     }
 
     impl Interrupt {
@@ -20,9 +20,9 @@ pub mod interrupts {
                 0x04 => Some(Interrupt::Joypad),
                 0x03 => Some(Interrupt::Serial),
                 0x02 => Some(Interrupt::Timer),
-                0x01 => Some(Interrupt::LCD),
+                0x01 => Some(Interrupt::Stat),
                 0x00 => Some(Interrupt::VBlank),
-                _ => None
+                _ => None,
             }
         }
     }
@@ -104,6 +104,7 @@ pub mod regions {
     pub const IO_REGISTER_END: usize = 0xff7f;
     pub const HRAM_START: usize = 0xff80;
     pub const HRAM_END: usize = 0xfffe;
+    pub const INTERRUPT_FLAG: usize = 0xff0f;
     pub const INTERRUPT_ENABLE_REGISTER: usize = 0xffff;
 }
 
@@ -132,6 +133,10 @@ impl Memory {
 
     pub fn lcd_status(&self) -> LcdStatus {
         LcdStatus::from(self.block[STAT])
+    }
+
+    pub fn lcd_control(&self) -> LcdControl {
+        LcdControl::from(self.block[LCDC])
     }
 
     pub fn timer_control(&self) -> TimerControl {
@@ -210,6 +215,14 @@ impl Memory {
 
     pub fn get_hram(&self) -> &[u8] {
         &self.block[HRAM_START..HRAM_END]
+    }
+
+    pub fn get_interrupt_flag(&self) -> &u8 {
+        &self.block[INTERRUPT_FLAG]
+    }
+
+    pub fn set_interrupt_registers(&mut self, value: u8) {
+        self.write(INTERRUPT_ENABLE_REGISTER, value);
     }
 
     pub fn get_interrupt_registers(&self) -> &u8 {
@@ -313,14 +326,41 @@ impl TryFrom<u8> for TimerControl {
         }
     }
 }
+#[allow(dead_code)]
+#[derive(Debug)]
+pub struct LcdControl {
+    lcd_ppu_enable: bool,
+    window_tile_map: bool,
+    window_enable: bool,
+    bg_window_tile_data_area: bool,
+    bg_tile_map: bool,
+    obj_size: bool,
+    obj_enable: bool,
+    bg_window_enable: bool,
+}
+
+impl From<u8> for LcdControl {
+    fn from(value: u8) -> Self {
+        Self {
+            lcd_ppu_enable: (value & 0x80) >> 7 == 1,
+            window_tile_map: (value & 0x40) >> 6 == 1,
+            window_enable: (value & 0x20) >> 5 == 1,
+            bg_window_tile_data_area: (value & 0x10) >> 4 == 1,
+            bg_tile_map: (value & 0x08) >> 3 == 1,
+            obj_size: (value & 0x04) >> 2 == 1,
+            obj_enable: (value & 0x02) >> 1 == 1,
+            bg_window_enable: (value & 0x01) == 1,
+        }
+    }
+}
 
 #[allow(dead_code)]
 #[derive(Debug)]
 pub struct LcdStatus {
     lyc_int_select: bool,
-    mode_2_int_select: bool,
-    mode_1_int_select: bool,
-    mode_0_int_select: bool,
+    pub mode_2_int_select: bool,
+    pub mode_1_int_select: bool,
+    pub mode_0_int_select: bool,
     lyu_lc: bool,
     ppu_mode: bool,
 }

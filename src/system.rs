@@ -1,17 +1,14 @@
-use sdl3::{
-    event::Event,
-    iostream::IOStream,
-    keyboard::Keycode,
-    pixels::{Color, PixelFormat},
-    rect::Rect,
-    render::{FPoint, FRect, TextureAccess},
-    surface::Surface,
-};
+use sdl3::{event::Event, keyboard::Keycode, pixels::Color};
 
 use crate::{
-    apu::Apu, cartridge::Cartridge, clock::Clock, cpu::Cpu, display::Ppu, errors::{CartridgeError, SystemError}, memory::{
-        interrupts::Interrupt, registers::{DIV, IE, LY, TMA}, Memory
-    }, DecodeContext
+    apu::Apu,
+    cartridge::Cartridge,
+    clock::Clock,
+    cpu::Cpu,
+    display::Ppu,
+    errors::SystemError,
+    instructions::jumps::call_n16,
+    memory::{Memory, interrupts::Interrupt},
 };
 
 pub struct System {
@@ -23,7 +20,8 @@ pub struct System {
     pub cartridge: Cartridge,
 }
 
-#[allow(dead_code)]
+pub const VBLANK_INT_HANDLER: u16 = 0x40;
+
 impl System {
     pub fn new(rom: Vec<u8>) -> Result<Self, SystemError> {
         let mut mem = Memory::default();
@@ -43,24 +41,27 @@ impl System {
 
     fn handle_interrupts(&mut self) {
         if let Some(interrupt) = Interrupt::get_interrupt(self.mem.get_interrupt_registers()) {
-            println!("{:?} {}", interrupt, self.clock.t_cycles);
+            match interrupt {
+                Interrupt::VBlank => {
+                    let _ = call_n16(VBLANK_INT_HANDLER, &mut self.cpu, &mut self.mem);
+                }
+                _ => (),
+            }
         }
     }
 
     pub fn execute(&mut self) {
-        println!("{:?}", self.cartridge);
         self.ppu.canvas.set_draw_color(Color::WHITE);
-        self.ppu.canvas.clear();
-        self.ppu.canvas.present();
         'running: loop {
             self.clock.tick(&mut self.mem);
             // execute instructions
-            self.clock.t_cycles += self.cpu.execute(&mut self.mem).unwrap() as usize;
+            self.clock.m_cycles += self.cpu.execute(&mut self.mem).unwrap() as usize;
             // process audio
             self.apu.process();
             // handle interrupts
             self.handle_interrupts();
-            // self.ppu.canvas.clear();
+            // render
+            self.ppu.render_scanline(&mut self.mem, &self.clock);
             for event in self.ppu.event_pump.poll_iter() {
                 match event {
                     Event::Quit { .. }
