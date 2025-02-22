@@ -1,5 +1,5 @@
 use crate::{
-    Mnemonic, cc,
+    Mnemonic,
     cpu::{Cpu, R16},
     memory::Memory,
 };
@@ -10,7 +10,6 @@ use super::{Condition, Instruction, InstructionResult, pop_stack, push_stack};
 /// Call address n16.
 /// This pushes the address of the instruction after the CALL on the stack, such that RET can pop it later; then, it executes an implicit JP n16.
 pub fn call_n16(n16: u16, cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instruction> {
-    println!("CALL {n16:0x}");
     push_stack(cpu.registers.pc + 3, cpu, mem);
     cpu.registers.pc = n16;
     Ok(Instruction {
@@ -28,7 +27,7 @@ pub fn call_cc_n16(
     cpu: &mut Cpu,
     mem: &mut Memory,
 ) -> InstructionResult<Instruction> {
-    if cc(cpu, condition) {
+    if cpu.cc(condition) {
         push_stack(cpu.registers.pc + 3, cpu, mem);
         cpu.registers.pc = n16;
         return Ok(Instruction {
@@ -70,7 +69,7 @@ pub fn jp_n16(n16: u16, cpu: &mut Cpu) -> InstructionResult<Instruction> {
 /// JP cc, n16
 /// Jump to address n16 if condition cc is met.
 pub fn jp_cc_n16(n16: u16, condition: Condition, cpu: &mut Cpu) -> InstructionResult<Instruction> {
-    if cc(cpu, condition.clone()) {
+    if cpu.cc(condition.clone()) {
         cpu.registers.pc = n16;
         return Ok(Instruction {
             mnemonic: Mnemonic::JP,
@@ -103,7 +102,7 @@ pub fn jr_n16(e8: u8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
 /// JR cc,n16
 /// Relative Jump to address n16 if condition cc is met.
 pub fn jr_cc_n16(e8: u8, condition: Condition, cpu: &mut Cpu) -> InstructionResult<Instruction> {
-    if cc(cpu, condition) {
+    if cpu.cc(condition) {
         let offset = e8 as i8;
         cpu.registers
             .set_r16(R16::PC, cpu.registers.pc.wrapping_add(offset as u16));
@@ -128,7 +127,7 @@ pub fn ret_cc(
     cpu: &mut Cpu,
     mem: &mut Memory,
 ) -> InstructionResult<Instruction> {
-    if cc(cpu, condition) {
+    if cpu.cc(condition) {
         pop_stack(R16::PC, cpu, mem);
         cpu.registers.pc += 1;
         return Ok(Instruction {

@@ -1,12 +1,12 @@
 use crate::{
     Mnemonic,
-    cpu::{Cpu, Flag, R8, R16},
+    cpu::{Cpu, R8, R16},
     memory::Memory,
 };
 
 use super::{
     Instruction, InstructionResult,
-    arithmetic_16bit::{Arith16Bit, add_16bit},
+    arithmetic_16bit::add_16bit,
 };
 
 /// Push onto the stack
@@ -34,7 +34,7 @@ pub fn pop_stack(r16: R16, cpu: &mut Cpu, mem: &mut Memory) {
 /// ADD HL, SP
 /// Add the value in SP to HL
 pub fn add_hl_sp(cpu: &mut Cpu) -> InstructionResult<Instruction> {
-    let Arith16Bit { sum, flags } = add_16bit(cpu.registers.sp, cpu.registers.hl, None);
+    let (sum, flags) = add_16bit(cpu.registers.sp, cpu.registers.hl, None);
     cpu.registers.flags.set(flags);
     cpu.registers.set_r16(R16::HL, sum);
     cpu.registers.pc += 1;

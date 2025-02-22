@@ -1,3 +1,5 @@
+// this is a big TODO For Now
+// The audio processing unit of the GB
 #[derive(Debug)]
 pub struct Apu {}
 

@@ -1,6 +1,6 @@
 use crate::{
     Cpu, Mnemonic,
-    cpu::{Flag, R8, R16},
+    cpu::{Flags, R8, R16},
     memory::Memory,
 };
 
@@ -292,7 +292,6 @@ pub fn sla_r8(r8: R8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
     let mut reg = cpu.registers.get_r8(r8);
     reg <<= 1;
     let msb = (reg & 0x80) >> 7;
-    println!("{reg:0x}");
     cpu.registers.flags.zero = reg == 0;
     cpu.registers.flags.subtraction = false;
     cpu.registers.flags.half_carry = false;

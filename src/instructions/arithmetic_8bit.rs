@@ -6,14 +6,7 @@ use crate::{
 
 use super::{Instruction, InstructionResult};
 
-// TODO: i dont like these
-#[derive(Debug)]
-pub struct Arith8Bit {
-    pub sum: u8,
-    pub flags: u8,
-}
-
-pub fn add_8bit(a: u8, b: u8, carry_flag: Option<bool>) -> Arith8Bit {
+pub fn add_8bit(a: u8, b: u8, carry_flag: Option<bool>) -> (u8, u8) {
     let carry = match carry_flag {
         Some(num) => num as u8,
         None => 0,
@@ -31,10 +24,10 @@ pub fn add_8bit(a: u8, b: u8, carry_flag: Option<bool>) -> Arith8Bit {
     flags |= (half_carry as u8) << 5;
     // set the carry flag
     flags |= (carry as u8) << 4;
-    Arith8Bit { sum, flags }
+    (sum, flags)
 }
 
-pub fn sub_8bit(a: u8, b: u8, carry_flag: Option<bool>) -> Arith8Bit {
+pub fn sub_8bit(a: u8, b: u8, carry_flag: Option<bool>) -> (u8, u8) {
     let carry = match carry_flag {
         Some(num) => num as u8,
         None => 0,
@@ -49,7 +42,7 @@ pub fn sub_8bit(a: u8, b: u8, carry_flag: Option<bool>) -> Arith8Bit {
     flags |= 1 << 6;
     flags |= (half_carry as u8) << 5;
     flags |= (carry as u8) << 4;
-    Arith8Bit { sum, flags }
+    (sum, flags)
 }
 
 /// ADC A,r8
@@ -57,7 +50,7 @@ pub fn sub_8bit(a: u8, b: u8, carry_flag: Option<bool>) -> Arith8Bit {
 pub fn adc_a_r8(r8: R8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
     let a = cpu.registers.a;
     let r8 = cpu.registers.get_r8(r8);
-    let Arith8Bit { sum, flags } = add_8bit(a, r8, Some(cpu.registers.flags.carry));
+    let (sum, flags) = add_8bit(a, r8, Some(cpu.registers.flags.carry));
     cpu.registers.a = sum;
     cpu.registers.flags.set(flags);
     cpu.registers.pc += 1;
@@ -74,7 +67,7 @@ pub fn adc_a_immed_hl(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Inst
     let hl = cpu.registers.get_r16(R16::HL);
     let a = cpu.registers.a;
     let mem = mem.read(hl as usize);
-    let Arith8Bit { sum, flags } = add_8bit(a, mem, Some(cpu.registers.flags.carry));
+    let (sum, flags) = add_8bit(a, mem, Some(cpu.registers.flags.carry));
     cpu.registers.set_r8(R8::A, sum);
     cpu.registers.flags.set(flags);
     cpu.registers.pc += 1;
@@ -90,7 +83,7 @@ pub fn adc_a_immed_hl(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Inst
 pub fn adc_a_n8(n8: u8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
     let carry_flag = cpu.registers.flags.carry;
     let a = cpu.registers.a;
-    let Arith8Bit { sum, flags } = add_8bit(a, n8, Some(carry_flag));
+    let (sum, flags) = add_8bit(a, n8, Some(carry_flag));
     cpu.registers.set_r8(R8::A, sum);
     cpu.registers.flags.set(flags);
     cpu.registers.pc += 2;
@@ -106,7 +99,7 @@ pub fn adc_a_n8(n8: u8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
 pub fn add_a_r8(r8: R8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
     let r8 = cpu.registers.get_r8(r8);
     let a = cpu.registers.a;
-    let Arith8Bit { sum, flags } = add_8bit(a, r8, None);
+    let (sum, flags) = add_8bit(a, r8, None);
     cpu.registers.set_r8(R8::A, sum);
     cpu.registers.flags.set(flags);
     cpu.registers.pc += 1;
@@ -123,7 +116,7 @@ pub fn add_a_immed_hl(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Inst
     let hl = cpu.registers.hl;
     let a = cpu.registers.a;
     let mem = mem.read(hl as usize);
-    let Arith8Bit { sum, flags } = add_8bit(a, mem, None);
+    let (sum, flags) = add_8bit(a, mem, None);
     cpu.registers.set_r8(R8::A, sum);
     cpu.registers.flags.set(flags);
     cpu.registers.pc += 1;
@@ -138,7 +131,7 @@ pub fn add_a_immed_hl(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Inst
 /// Add the value n8 to A.
 pub fn add_a_n8(n8: u8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
     let a = cpu.registers.a;
-    let Arith8Bit { sum, flags } = add_8bit(a, n8, None);
+    let (sum, flags) = add_8bit(a, n8, None);
     cpu.registers.set_r8(R8::A, sum);
     cpu.registers.flags.set(flags);
     cpu.registers.pc += 1;
@@ -155,7 +148,7 @@ pub fn add_a_n8(n8: u8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
 pub fn cp_a_r8(r8: R8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
     let r8 = cpu.registers.get_r8(r8);
     let a = cpu.registers.a;
-    let Arith8Bit { sum: _, flags } = sub_8bit(a, r8, None);
+    let (_, flags) = sub_8bit(a, r8, None);
     cpu.registers.flags.set(flags);
     cpu.registers.pc += 1;
     Ok(Instruction {
@@ -172,7 +165,7 @@ pub fn cp_a_hl(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instruction
     let a = cpu.registers.a;
     let hl = cpu.registers.hl;
     let b = mem.read(hl as usize);
-    let Arith8Bit { sum: _, flags } = sub_8bit(a, b, None);
+    let (_, flags) = sub_8bit(a, b, None);
     cpu.registers.flags.set(flags);
     cpu.registers.pc += 1;
     Ok(Instruction {
@@ -187,7 +180,7 @@ pub fn cp_a_hl(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instruction
 /// This subtracts the value n8 from A and sets flags accordingly, but discards the result.
 pub fn cp_a_n8(n8: u8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
     let a = cpu.registers.a;
-    let Arith8Bit { sum: _, flags } = sub_8bit(a, n8, None);
+    let (_, flags) = sub_8bit(a, n8, None);
     cpu.registers.flags.set(flags);
     cpu.registers.pc += 2;
     Ok(Instruction {
@@ -201,7 +194,7 @@ pub fn cp_a_n8(n8: u8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
 /// Decrement the value in register r8 by 1.
 pub fn dec_r8(r8: R8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
     let reg = cpu.registers.get_r8(r8);
-    let Arith8Bit { sum, flags } = sub_8bit(reg, 1, None);
+    let (sum, flags) = sub_8bit(reg, 1, None);
     cpu.registers.set_r8(r8, sum);
     cpu.registers.flags.set(flags);
     cpu.registers.pc += 1;
@@ -217,7 +210,7 @@ pub fn dec_r8(r8: R8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
 pub fn dec_hl(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instruction> {
     let hl = cpu.registers.hl;
     let byte = mem.read(hl as usize);
-    let Arith8Bit { sum, flags } = sub_8bit(byte, 1, None);
+    let (sum, flags) = sub_8bit(byte, 1, None);
     mem.write(hl as usize, sum);
     cpu.registers.flags.set(flags);
     cpu.registers.pc += 1;
@@ -232,7 +225,7 @@ pub fn dec_hl(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instruction>
 /// Increment the value in register r8 by 1.
 pub fn inc_r8(r8: R8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
     let reg = cpu.registers.get_r8(r8);
-    let Arith8Bit { sum, flags } = add_8bit(reg, 1, None);
+    let (sum, flags) = add_8bit(reg, 1, None);
     cpu.registers.set_r8(r8, sum);
     cpu.registers.flags.set(flags);
     cpu.registers.pc += 1;
@@ -248,7 +241,7 @@ pub fn inc_r8(r8: R8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
 pub fn inc_hl(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instruction> {
     let hl = cpu.registers.hl;
     let byte = mem.read(hl as usize);
-    let Arith8Bit { sum, flags } = add_8bit(byte, 1, None);
+    let (sum, flags) = add_8bit(byte, 1, None);
     mem.write(hl as usize, sum);
     cpu.registers.flags.set(flags);
     cpu.registers.pc += 1;
@@ -265,7 +258,7 @@ pub fn sbc_a_r8(r8: R8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
     let carry_flag = cpu.registers.flags.carry;
     let a = cpu.registers.a;
     let r8 = cpu.registers.get_r8(r8);
-    let Arith8Bit { sum, flags } = sub_8bit(a, r8, Some(carry_flag));
+    let (sum, flags) = sub_8bit(a, r8, Some(carry_flag));
     cpu.registers.set_r8(R8::A, sum);
     cpu.registers.flags.set(flags);
     cpu.registers.pc += 1;
@@ -283,7 +276,7 @@ pub fn sbc_a_immed_hl(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Inst
     let a = cpu.registers.a;
     let hl = cpu.registers.hl;
     let byte = mem.read(hl as usize);
-    let Arith8Bit { sum, flags } = sub_8bit(a, byte, Some(carry_flag));
+    let (sum, flags) = sub_8bit(a, byte, Some(carry_flag));
     cpu.registers.set_r8(R8::A, sum);
     cpu.registers.flags.set(flags);
     cpu.registers.pc += 1;
@@ -299,7 +292,7 @@ pub fn sbc_a_immed_hl(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Inst
 pub fn sbc_a_n8(n8: u8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
     let carry_flag = cpu.registers.flags.carry;
     let a = cpu.registers.a;
-    let Arith8Bit { sum, flags } = sub_8bit(a, n8, Some(carry_flag));
+    let (sum, flags) = sub_8bit(a, n8, Some(carry_flag));
     cpu.registers.set_r8(R8::A, sum);
     cpu.registers.flags.set(flags);
     cpu.registers.pc += 2;
@@ -315,7 +308,7 @@ pub fn sbc_a_n8(n8: u8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
 pub fn sub_a_r8(r8: R8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
     let a = cpu.registers.a;
     let r8 = cpu.registers.get_r8(r8);
-    let Arith8Bit { sum, flags } = sub_8bit(a, r8, None);
+    let (sum, flags) = sub_8bit(a, r8, None);
     cpu.registers.set_r8(R8::A, sum);
     cpu.registers.flags.set(flags);
     cpu.registers.pc += 1;
@@ -332,7 +325,7 @@ pub fn sub_a_immed_hl(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Inst
     let a = cpu.registers.a;
     let hl = cpu.registers.hl;
     let byte = mem.read(hl as usize);
-    let Arith8Bit { sum, flags } = sub_8bit(a, byte, None);
+    let (sum, flags) = sub_8bit(a, byte, None);
     cpu.registers.set_r8(R8::A, sum);
     cpu.registers.flags.set(flags);
     cpu.registers.pc += 1;
@@ -347,7 +340,7 @@ pub fn sub_a_immed_hl(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Inst
 /// Subtract the value n8 from A.
 pub fn sub_a_n8(n8: u8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
     let a = cpu.registers.a;
-    let Arith8Bit { sum, flags } = sub_8bit(a, n8, None);
+    let (sum, flags) = sub_8bit(a, n8, None);
     cpu.registers.set_r8(R8::A, sum);
     cpu.registers.flags.set(flags);
     cpu.registers.pc += 2;

@@ -5,13 +5,7 @@ use crate::{
 
 use super::{Instruction, InstructionResult};
 
-#[derive(Debug)]
-pub struct Arith16Bit {
-    pub sum: u16,
-    pub flags: u8,
-}
-
-pub fn add_16bit(a: u16, b: u16, carry_flag: Option<bool>) -> Arith16Bit {
+pub fn add_16bit(a: u16, b: u16, carry_flag: Option<bool>) -> (u16, u8) {
     let carry = match carry_flag {
         Some(num) => num as u16,
         None => 0,
@@ -23,10 +17,10 @@ pub fn add_16bit(a: u16, b: u16, carry_flag: Option<bool>) -> Arith16Bit {
     flags |= 0 << 6;
     flags |= (half_carry as u8) << 5;
     flags |= (carry as u8) << 4;
-    Arith16Bit { sum, flags }
+    (sum, flags)
 }
 
-pub fn sub_16bit(a: u16, b: u16, carry_flag: Option<bool>) -> Arith16Bit {
+pub fn sub_16bit(a: u16, b: u16, carry_flag: Option<bool>) -> (u16, u8) {
     let carry = match carry_flag {
         Some(num) => num as u16,
         None => 0,
@@ -40,7 +34,7 @@ pub fn sub_16bit(a: u16, b: u16, carry_flag: Option<bool>) -> Arith16Bit {
     flags |= 0 << 6;
     flags |= (half_carry as u8) << 5;
     flags |= (carry as u8) << 4;
-    Arith16Bit { sum, flags }
+    (sum, flags)
 }
 
 /// ADD HL, r16
@@ -48,7 +42,7 @@ pub fn sub_16bit(a: u16, b: u16, carry_flag: Option<bool>) -> Arith16Bit {
 pub fn add_r16_hl(r16: R16, cpu: &mut Cpu) -> InstructionResult<Instruction> {
     let r16 = cpu.registers.get_r16(r16);
     let hl = cpu.registers.hl;
-    let Arith16Bit { sum, flags } = add_16bit(r16, hl, None);
+    let (sum, flags) = add_16bit(r16, hl, None);
     cpu.registers.set_r16(R16::HL, sum);
     cpu.registers.flags.set(flags);
     cpu.registers.pc += 1;
@@ -63,7 +57,7 @@ pub fn add_r16_hl(r16: R16, cpu: &mut Cpu) -> InstructionResult<Instruction> {
 /// Decrement the value in register r16 by 1.
 pub fn dec_r16(r16: R16, cpu: &mut Cpu) -> InstructionResult<Instruction> {
     let reg = cpu.registers.get_r16(r16);
-    let Arith16Bit { sum, flags: _ } = sub_16bit(reg, 1, None);
+    let (sum, _) = sub_16bit(reg, 1, None);
     cpu.registers.set_r16(r16, sum);
     if r16 != R16::PC {
         cpu.registers.pc += 1;
@@ -79,7 +73,7 @@ pub fn dec_r16(r16: R16, cpu: &mut Cpu) -> InstructionResult<Instruction> {
 /// Increment the value in register r16 by 1.
 pub fn inc_r16(r16: R16, cpu: &mut Cpu) -> InstructionResult<Instruction> {
     let reg = cpu.registers.get_r16(r16);
-    let Arith16Bit { sum, flags: _ } = add_16bit(reg, 1, None);
+    let (sum, _) = add_16bit(reg, 1, None);
     cpu.registers.set_r16(r16, sum);
     if r16 != R16::PC {
         cpu.registers.pc += 1;

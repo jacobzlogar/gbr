@@ -11,10 +11,7 @@ pub mod misc;
 pub mod stack;
 
 use crate::{
-    InstructionFn, Mnemonic,
-    cpu::{Condition, R8, R16},
-    errors::DecodeError,
-    get_i8, get_u8, get_u16,
+    cpu::{Condition, R16, R8}, errors::DecodeError, get_i8, get_u16, get_u8, DecodeFn, Mnemonic
 };
 use arithmetic_8bit::*;
 use arithmetic_16bit::*;
@@ -40,7 +37,7 @@ pub type InstructionResult<T> = std::result::Result<T, DecodeError>;
 
 /// Game Boy CPU (SM83) instruction set
 /// https://gbdev.io/gb-opcodes/optables/#standard
-pub const INSTRUCTION_SET: [InstructionFn; 256] = [
+pub const INSTRUCTION_SET: [DecodeFn; 256] = [
     // row 1
     |ctx| nop(ctx.cpu),
     |ctx| ld_r16_n16(R16::BC, get_u16(&mut ctx.iter)?, ctx.cpu),
@@ -345,7 +342,7 @@ pub const INSTRUCTION_SET: [InstructionFn; 256] = [
 
 /// Prefixed ($CB $xx)
 /// https://gbdev.io/gb-opcodes/optables/#prefixed
-pub const PREFIX_TABLE: [InstructionFn; 256] = [
+pub const PREFIX_TABLE: [DecodeFn; 256] = [
     // row 1
     |ctx| rlc_r8(R8::B, ctx.cpu),
     |ctx| rlc_r8(R8::C, ctx.cpu),

@@ -5,10 +5,11 @@ use crate::{
     cartridge::Cartridge,
     clock::Clock,
     cpu::Cpu,
-    display::Ppu,
+    display::{Ppu, PpuMode},
     errors::SystemError,
     instructions::jumps::call_n16,
-    memory::{Memory, interrupts::Interrupt},
+    interrupts::Interrupt,
+    memory::Memory,
 };
 
 pub struct System {
@@ -23,23 +24,24 @@ pub struct System {
 pub const VBLANK_INT_HANDLER: u16 = 0x40;
 
 impl System {
-    pub fn new(rom: Vec<u8>) -> Result<Self, SystemError> {
+    pub fn new(game: Vec<u8>) -> Result<Self, SystemError> {
         let mut mem = Memory::default();
         let cartridge =
-            Cartridge::new(rom.clone(), &mut mem).map_err(|_| SystemError::CartridgeError)?;
-        let ppu = Ppu::new();
-        let cpu = Cpu::default();
+            Cartridge::new(game.clone(), &mut mem).map_err(|_| SystemError::CartridgeError)?;
         Ok(Self {
-            cpu,
+            cpu: Cpu::default(),
             apu: Apu::default(),
-            clock: Clock::new(&mut mem),
+            ppu: Ppu::new(),
             mem,
-            ppu,
+            clock: Clock::new(&mut mem),
             cartridge,
         })
     }
 
     fn handle_interrupts(&mut self) {
+        if self.ppu.mode == PpuMode::Drawing {
+            println!("drawing");
+        }
         if let Some(interrupt) = Interrupt::get_interrupt(self.mem.get_interrupt_registers()) {
             match interrupt {
                 Interrupt::VBlank => {

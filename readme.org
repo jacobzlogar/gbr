@@ -39,7 +39,20 @@ TODO:
   - e8 instructions
   - [ ] halt instruction
   - [ ] DAA 
+
 - Timing:
+
+  Sections of memory are inaccessible during PPU  modes 2/3 which isn't "directly" tied
+  to anything in the timing, since mode 3 can run for a variable amount of timte
+  I thought one of the lcd registers contained something about mode 3 but it seems that only mode's 0-2
+  are represented in the LCD status register, so how do i coordinate the access to those
+  memory regions with the ppu's current mode
+  
+  Some context:
+  - each scanline runs for 70224 dots
+  - 59.7 frames per second
+    (insert (format "%d" (* 59.7 70224))) = 4192372 (which is the clock speed of the console)
+  
   - [ ] 
 - Interrupts:
   - [ ] figure out how to coordinate interrupts

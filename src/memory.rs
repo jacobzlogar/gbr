@@ -1,38 +1,11 @@
-use interrupts::Interrupt;
 use regions::*;
 use registers::*;
 
-use crate::{cartridge::CartridgeType, errors::SystemError};
-
-pub mod interrupts {
-    #[derive(Debug)]
-    pub enum Interrupt {
-        Joypad,
-        Serial,
-        Timer,
-        Stat,
-        VBlank,
-    }
-
-    impl Interrupt {
-        pub fn get_interrupt(value: &u8) -> Option<Self> {
-            match value {
-                0x04 => Some(Interrupt::Joypad),
-                0x03 => Some(Interrupt::Serial),
-                0x02 => Some(Interrupt::Timer),
-                0x01 => Some(Interrupt::Stat),
-                0x00 => Some(Interrupt::VBlank),
-                _ => None,
-            }
-        }
-    }
-    pub const TIMER: u8 = 0x02;
-    // pub const VBLANK: u8 = 0x00;
-    // pub const LCD: u8 = 0x02;
-    // pub const TIMER: u8 = 0x04;
-    // pub const SERIAL: u8 = 0x08;
-    // pub const JOYPAD: u8 = 0x10;
-}
+use crate::{
+    cartridge::CartridgeType,
+    errors::SystemError,
+    io::{LcdControl, LcdStatus, TimerControl}
+};
 
 // Registers
 pub mod registers {
@@ -88,6 +61,12 @@ pub mod regions {
     pub const ROM_BANK_0_END: usize = 0x3fff;
     pub const ROM_BANK_1_START: usize = 0x4000;
     pub const ROM_BANK_1_END: usize = 0x7fff;
+    pub const TILE_BLOCK_0_START: usize = 0x8000;
+    pub const TILE_BLOCK_0_END: usize = 0x87ff;
+    pub const TILE_BLOCK_1_START: usize = 0x8800;
+    pub const TILE_BLOCK_1_END: usize = 0x8fff;
+    pub const TILE_BLOCK_2_START: usize = 0x9000;
+    pub const TILE_BLOCK_2_END: usize = 0x97ff;
     pub const VRAM_START: usize = 0x8000;
     pub const VRAM_END: usize = 0x9fff;
     pub const EXTERNAL_RAM_START: usize = 0xa000;
@@ -110,24 +89,40 @@ pub mod regions {
 
 #[derive(Debug, Copy, Clone)]
 pub struct Memory {
-    // (* 8 65536) == ~.5mb so i guess it's not that bad
     pub block: [u8; 65536],
+    pub oam_accessible: bool,
+    pub vram_accessible: bool,
 }
 
 impl Memory {
     pub fn read(&mut self, addr: usize) -> u8 {
+        // oam can't be written to during ppu mode 2
+        if addr >= 0xfe00 && addr <= 0xfe9f && !self.oam_accessible {
+            return 0xff;
+        }
+        // vram can't be written to during ppu mode 3
+        if addr >= 0x8000 && addr <= 0x9fff && !self.vram_accessible {
+            return 0xff;
+        }
         self.block[addr]
     }
 
     pub fn write(&mut self, addr: usize, value: u8) {
+        if addr >= 0xfe00 && addr <= 0xfe9f && !self.oam_accessible {
+            return;
+        }
+        if addr >= 0x8000 && addr <= 0x9fff && !self.vram_accessible {
+            return;
+        }
         self.block[addr] = value;
     }
 
     pub fn inc_scanline(&mut self) {
         let ly = self.read(LY);
-        self.write(LY, ly + 1);
         if self.read(LY) == 153 {
             self.write(LY, 0);
+        } else {
+            self.write(LY, ly + 1);
         }
     }
 
@@ -162,9 +157,10 @@ impl Memory {
 
     pub fn inc_tima(&mut self) {
         let tima = self.read(TIMA);
-        // This timer is incremented at the clock frequency specified by the TAC register ($FF07). When the value overflows (exceeds $FF) it is reset to the value specified in TMA (FF06) and an interrupt is requested.
+        // This timer is incremented at the clock frequency specified by the TAC register ($FF07).
+        // When the value overflows (exceeds $FF) it is reset to the value specified in TMA (FF06) and an interrupt is requested.
         if tima == 0xff {
-            self.block[IE] = interrupts::TIMER;
+            self.block[IE] = crate::interrupts::TIMER;
             self.block[TIMA] = self.read(TMA);
         }
         self.block[TIMA] += 1;
@@ -236,6 +232,8 @@ impl Default for Memory {
     fn default() -> Self {
         let mut mem = Self {
             block: [0u8; 65536],
+            oam_accessible: false,
+            vram_accessible: true
         };
         mem.write(JOYP, 0xcf);
         mem.write(SB, 0x00);
@@ -276,104 +274,5 @@ impl Default for Memory {
         mem.write(WX, 0x00);
         mem.write(IE, 0x00);
         mem
-    }
-}
-
-#[derive(Debug)]
-pub struct TimerControl {
-    pub enable: bool,
-    pub increment: u16,
-    pub freq_single_speed: usize,
-    pub freq_sgb1: usize,
-    pub freq_double_speed: usize,
-}
-
-impl TryFrom<u8> for TimerControl {
-    type Error = crate::errors::SystemError;
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        let freq = value & 0x03;
-        let enable = value & 0x04 != 0;
-        match freq {
-            0x00 => Ok(Self {
-                enable,
-                increment: 256,
-                freq_single_speed: 4096,
-                freq_sgb1: 4194,
-                freq_double_speed: 8192,
-            }),
-            0x01 => Ok(Self {
-                enable,
-                increment: 4,
-                freq_single_speed: 262144,
-                freq_sgb1: 268400,
-                freq_double_speed: 524288,
-            }),
-            0x02 => Ok(Self {
-                enable,
-                increment: 16,
-                freq_single_speed: 65536,
-                freq_sgb1: 67110,
-                freq_double_speed: 131072,
-            }),
-            0x03 => Ok(Self {
-                enable,
-                increment: 64,
-                freq_single_speed: 16384,
-                freq_sgb1: 16780,
-                freq_double_speed: 32768,
-            }),
-            _ => Err(SystemError::TimerControlError),
-        }
-    }
-}
-#[allow(dead_code)]
-#[derive(Debug)]
-pub struct LcdControl {
-    lcd_ppu_enable: bool,
-    window_tile_map: bool,
-    window_enable: bool,
-    bg_window_tile_data_area: bool,
-    bg_tile_map: bool,
-    obj_size: bool,
-    obj_enable: bool,
-    bg_window_enable: bool,
-}
-
-impl From<u8> for LcdControl {
-    fn from(value: u8) -> Self {
-        Self {
-            lcd_ppu_enable: (value & 0x80) >> 7 == 1,
-            window_tile_map: (value & 0x40) >> 6 == 1,
-            window_enable: (value & 0x20) >> 5 == 1,
-            bg_window_tile_data_area: (value & 0x10) >> 4 == 1,
-            bg_tile_map: (value & 0x08) >> 3 == 1,
-            obj_size: (value & 0x04) >> 2 == 1,
-            obj_enable: (value & 0x02) >> 1 == 1,
-            bg_window_enable: (value & 0x01) == 1,
-        }
-    }
-}
-
-#[allow(dead_code)]
-#[derive(Debug)]
-pub struct LcdStatus {
-    lyc_int_select: bool,
-    pub mode_2_int_select: bool,
-    pub mode_1_int_select: bool,
-    pub mode_0_int_select: bool,
-    lyu_lc: bool,
-    ppu_mode: bool,
-}
-
-impl From<u8> for LcdStatus {
-    fn from(value: u8) -> Self {
-        Self {
-            lyc_int_select: value & 0x40 != 0,
-            mode_2_int_select: value & 0x20 != 0,
-            mode_1_int_select: value & 0x10 != 0,
-            mode_0_int_select: value & 0x08 != 0,
-            lyu_lc: value & 0x04 != 0,
-            ppu_mode: value & 0x03 != 0,
-        }
     }
 }

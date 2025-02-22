@@ -1,6 +1,6 @@
 #![allow(warnings)]
 use crate::errors::DecodeError;
-use cpu::{Condition, Cpu};
+use cpu::{Cpu};
 use instructions::{Instruction, InstructionResult};
 use memory::Memory;
 
@@ -9,9 +9,9 @@ pub mod cartridge;
 pub mod clock;
 pub mod cpu;
 pub mod display;
-pub mod dma;
 pub mod errors;
 pub mod instructions;
+pub mod interrupts;
 pub mod io;
 pub mod memory;
 pub mod system;
@@ -58,7 +58,7 @@ pub struct DecodeContext<'a> {
 
 // maybe i should define a contract for functions that decode instructions,
 // i.e: functions in the dispatch table take different parts of `ctx` as parameters, i think they should always take all of `DecodeContext`
-pub type InstructionFn = fn(&mut DecodeContext) -> InstructionResult<Instruction>;
+pub type DecodeFn = fn(&mut DecodeContext) -> InstructionResult<Instruction>;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Mnemonic {
@@ -138,13 +138,4 @@ pub fn get_u16(iter: &mut std::slice::Iter<u8>) -> InstructionResult<u16> {
         *iter.next().ok_or(DecodeError::MissingDataByte)?,
     ]);
     Ok(n16)
-}
-
-pub fn cc(cpu: &mut Cpu, condition: Condition) -> bool {
-    match condition {
-        Condition::NotZero => cpu.registers.flags.zero == false,
-        Condition::Zero => cpu.registers.flags.zero == true,
-        Condition::NotCarry => cpu.registers.flags.carry == false,
-        Condition::Carry => cpu.registers.flags.carry == true,
-    }
 }

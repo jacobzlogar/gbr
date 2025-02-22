@@ -104,9 +104,9 @@ impl Registers {
             R16::AF => self.af,
             R16::BC => self.bc,
             R16::DE => self.de,
-            R16::HL => self.de,
+            R16::HL => self.hl,
             R16::SP => self.sp,
-            R16::PC => self.hl,
+            R16::PC => self.pc,
         }
     }
     pub fn set_r16(&mut self, register: R16, value: u16) {
@@ -164,14 +164,6 @@ pub enum R8 {
 }
 
 #[derive(Debug)]
-pub enum Flag {
-    Z,
-    N,
-    H,
-    C,
-}
-
-#[derive(Debug)]
 pub struct Cpu {
     pub registers: Registers,
     // Interrupt master enable flag
@@ -188,6 +180,14 @@ impl Default for Cpu {
 }
 
 impl Cpu {
+    pub fn cc(&mut self, condition: Condition) -> bool {
+        match condition {
+            Condition::NotZero => self.registers.flags.zero == false,
+            Condition::Zero => self.registers.flags.zero == true,
+            Condition::NotCarry => self.registers.flags.carry == false,
+            Condition::Carry => self.registers.flags.carry == true,
+        }
+    }
     pub fn execute(&mut self, memory: &mut Memory) -> Result<u8, CpuError> {
         let pc = self.registers.pc as usize;
         let cloned_memory = memory.clone();
@@ -201,15 +201,10 @@ impl Cpu {
         };
         if let Ok(instruction) = INSTRUCTION_SET[opcode_byte as usize](&mut ctx) {
             match instruction.mnemonic {
-                Mnemonic::NOP => {
-                    self.registers.pc += 1;
-                }
-                Mnemonic::RST => {
-                    self.registers.pc += 1;
-                }
-                Mnemonic::RETI => self.ime = true,
-                Mnemonic::EI => self.ime = true,
-                _ => (),
+                Mnemonic::NOP|Mnemonic::RST => (),
+                Mnemonic::RETI|Mnemonic::EI => self.ime = true,
+                _ => ()
+                // _ => println!("{:?}", instruction),
             };
             return Ok(instruction.cycles);
         }

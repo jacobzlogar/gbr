@@ -3,7 +3,7 @@ TARGET := test
 build: compile link fix
 
 compile:
-	rgbasm $(TARGET).asm -i "hardware.inc" -o build/$(TARGET).o -Wall
+	rgbasm asm/$(TARGET).asm -i "hardware.inc" -o build/$(TARGET).o -Wall
 
 link:
 	rgblink -o roms/$(TARGET).gb --map build/output.map build/$(TARGET).o
