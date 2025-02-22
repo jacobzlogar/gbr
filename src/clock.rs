@@ -1,7 +1,4 @@
-use crate::{
-    memory::Memory,
-    io::TimerControl
-};
+use crate::{io::TimerControl, memory::Memory};
 
 pub const T_CYCLES_PER_FRAME: usize = 70224;
 
@@ -35,7 +32,7 @@ impl Clock {
             let vblank = mem.get_interrupt_registers() | 1;
             mem.set_interrupt_registers(vblank);
         }
-        // reset scan lines, 
+        // reset scan lines,
         if self.m_cycles > 153 {
             self.m_cycles = 0;
         }

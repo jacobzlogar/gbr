@@ -4,10 +4,7 @@ use crate::{
     memory::Memory,
 };
 
-use super::{
-    Instruction, InstructionResult,
-    arithmetic_16bit::add_16bit,
-};
+use super::{Instruction, InstructionResult, arithmetic_16bit::add_16bit};
 
 /// Push onto the stack
 pub fn push_stack(n16: u16, cpu: &mut Cpu, mem: &mut Memory) {

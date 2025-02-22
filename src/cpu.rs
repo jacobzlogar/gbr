@@ -64,7 +64,6 @@ impl Registers {
             R8::L => self.l,
         }
     }
-
     /// Set r8, mask higher or lower bits of parent 16-bit register and update accordingly.
     pub fn set_r8(&mut self, register: R8, value: u8) {
         match register {
@@ -98,7 +97,6 @@ impl Registers {
             }
         }
     }
-
     pub fn get_r16(&self, register: R16) -> u16 {
         match register {
             R16::AF => self.af,
@@ -109,6 +107,8 @@ impl Registers {
             R16::PC => self.pc,
         }
     }
+    /// Update a 16-bit register, make sure to set the lower/higher
+    /// 8-bit child registers, as subsequent instructions may operate on them.
     pub fn set_r16(&mut self, register: R16, value: u16) {
         let (msb, lsb) = extract_bytes(value);
         match register {
@@ -180,6 +180,7 @@ impl Default for Cpu {
 }
 
 impl Cpu {
+    // "cc" = compare condition to register flag
     pub fn cc(&mut self, condition: Condition) -> bool {
         match condition {
             Condition::NotZero => self.registers.flags.zero == false,
@@ -201,10 +202,9 @@ impl Cpu {
         };
         if let Ok(instruction) = INSTRUCTION_SET[opcode_byte as usize](&mut ctx) {
             match instruction.mnemonic {
-                Mnemonic::NOP|Mnemonic::RST => (),
-                Mnemonic::RETI|Mnemonic::EI => self.ime = true,
-                _ => ()
-                // _ => println!("{:?}", instruction),
+                Mnemonic::NOP | Mnemonic::RST => (),
+                Mnemonic::RETI | Mnemonic::EI => self.ime = true,
+                _ => (), // _ => println!("{:?}", instruction),
             };
             return Ok(instruction.cycles);
         }

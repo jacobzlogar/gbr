@@ -4,7 +4,7 @@ use registers::*;
 use crate::{
     cartridge::CartridgeType,
     errors::SystemError,
-    io::{LcdControl, LcdStatus, TimerControl}
+    io::{LcdControl, LcdStatus, TimerControl},
 };
 
 // Registers
@@ -233,7 +233,7 @@ impl Default for Memory {
         let mut mem = Self {
             block: [0u8; 65536],
             oam_accessible: false,
-            vram_accessible: true
+            vram_accessible: true,
         };
         mem.write(JOYP, 0xcf);
         mem.write(SB, 0x00);

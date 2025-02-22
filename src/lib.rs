@@ -1,6 +1,6 @@
 #![allow(warnings)]
 use crate::errors::DecodeError;
-use cpu::{Cpu};
+use cpu::Cpu;
 use instructions::{Instruction, InstructionResult};
 use memory::Memory;
 

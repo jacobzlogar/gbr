@@ -11,7 +11,10 @@ pub mod misc;
 pub mod stack;
 
 use crate::{
-    cpu::{Condition, R16, R8}, errors::DecodeError, get_i8, get_u16, get_u8, DecodeFn, Mnemonic
+    DecodeFn, Mnemonic,
+    cpu::{Condition, R8, R16},
+    errors::DecodeError,
+    get_i8, get_u8, get_u16,
 };
 use arithmetic_8bit::*;
 use arithmetic_16bit::*;
@@ -25,7 +28,6 @@ use load::*;
 use misc::*;
 use stack::*;
 
-#[allow(dead_code)]
 #[derive(Debug)]
 pub struct Instruction {
     pub mnemonic: Mnemonic,

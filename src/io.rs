@@ -73,7 +73,6 @@ impl From<u8> for LcdStatus {
     }
 }
 
-
 #[derive(Debug)]
 pub struct TimerControl {
     pub enable: bool,
