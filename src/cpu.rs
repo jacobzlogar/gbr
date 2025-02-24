@@ -21,12 +21,12 @@ pub struct Registers {
     pub e: u8,
     pub h: u8,
     pub l: u8,
-    pub af: u16,
+    pub af: u16, // accumulator & flags
     pub bc: u16,
     pub de: u16,
     pub hl: u16,
-    pub sp: u16,
-    pub pc: u16,
+    pub sp: u16, // stack pointer
+    pub pc: u16, // programer counter/pointer
     pub flags: Flags,
 }
 
@@ -107,8 +107,7 @@ impl Registers {
             R16::PC => self.pc,
         }
     }
-    /// Update a 16-bit register, make sure to set the lower/higher
-    /// 8-bit child registers, as subsequent instructions may operate on them.
+    /// Update 16-bit register, ensure the lower & higher 8-bit registers are updated as well.
     pub fn set_r16(&mut self, register: R16, value: u16) {
         let (msb, lsb) = extract_bytes(value);
         match register {
@@ -141,7 +140,7 @@ impl Registers {
         };
     }
 }
-
+/// 16-bit registers
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum R16 {
     AF,
@@ -151,7 +150,7 @@ pub enum R16 {
     SP,
     PC,
 }
-
+/// 8-bit registers
 #[derive(Debug, Copy, Clone)]
 pub enum R8 {
     A,
@@ -180,7 +179,7 @@ impl Default for Cpu {
 }
 
 impl Cpu {
-    // "cc" = compare condition to register flag
+    /// Compare Condition to register flag
     pub fn cc(&mut self, condition: Condition) -> bool {
         match condition {
             Condition::NotZero => self.registers.flags.zero == false,
@@ -204,15 +203,15 @@ impl Cpu {
             match instruction.mnemonic {
                 Mnemonic::NOP | Mnemonic::RST => (),
                 Mnemonic::RETI | Mnemonic::EI => self.ime = true,
-                _ => (), // _ => println!("{:?}", instruction),
+                _ => println!("{instruction:?}"),
             };
             return Ok(instruction.cycles);
         }
-        // what does this actually mean? this seems kind of useless do we ever err from here?
+        // perhaps panicking here makes more sense?
         Err(CpuError::NoCycles)
     }
 }
-
+/// Z = Zero, N = Subtraction, H = Half Carry, C = Carry
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub struct Flags {
     pub zero: bool,
@@ -220,7 +219,9 @@ pub struct Flags {
     pub half_carry: bool,
     pub carry: bool,
 }
-
+/// The flags register is actually the lower 8-bits of the AF register
+/// flags are a part of almost all operations.
+/// i've opted for a higher-level representation of flags instead of bit-fiddling the lower 8 bits of the AF register constantly
 impl Flags {
     pub fn set(&mut self, value: u8) {
         self.zero = (value >> 7) & 1 == 1;
@@ -228,7 +229,6 @@ impl Flags {
         self.half_carry = (value >> 5) & 1 == 1;
         self.carry = (value >> 4) & 1 == 1;
     }
-
     pub fn clear(&mut self) {
         self.zero = false;
         self.subtraction = false;
@@ -236,7 +236,6 @@ impl Flags {
         self.carry = false;
     }
 }
-
 impl Default for Flags {
     fn default() -> Self {
         Self {
@@ -247,7 +246,7 @@ impl Default for Flags {
         }
     }
 }
-
+// make sure we can still cast flags back into a byte when certain operations i.e: PUSH AF need to operate on them
 impl Into<u8> for Flags {
     fn into(self) -> u8 {
         let mut flags: u8 = 0;

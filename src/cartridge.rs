@@ -1,12 +1,13 @@
 use crate::{errors::CartridgeError, memory::Memory};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Cartridge {
-    cartridge_type: CartridgeType,
+    pub rom: Vec<u8>,
+    pub cartridge_type: CartridgeType,
     pub logo: Vec<u8>,
     pub title: String,
-    rom_size: RomSize,
-    ram_size: RamSize, // number of banks present on the cartridge
+    pub rom_size: RomSize,
+    pub ram_size: RamSize,
 }
 
 pub const ENTRY_POINT_START: usize = 0x0100;
@@ -20,25 +21,24 @@ pub const ROM_SIZE: usize = 0x0148;
 pub const RAM_SIZE: usize = 0x0149;
 
 impl Cartridge {
-    pub fn new(rom: Vec<u8>, mem: &mut Memory) -> Result<Self, CartridgeError> {
+    pub fn new(rom: Vec<u8>) -> Result<Self, CartridgeError> {
         let cartridge_type = CartridgeType::try_from(rom[CARTRIDGE_TYPE])?;
         let title = String::from_utf8_lossy(&rom[TITLE_START..TITLE_END]).to_string();
         let logo = &rom[LOGO_START..LOGO_END].to_vec();
         let rom_size = RomSize::try_from(rom[ROM_SIZE])?;
         let ram_size = RamSize::try_from(rom[RAM_SIZE])?;
-        mem.setup_rom(rom, cartridge_type.clone());
-        let cartridge = Cartridge {
+        Ok(Cartridge {
+            rom,
             cartridge_type,
             title,
             logo: logo.to_vec(),
             ram_size,
             rom_size,
-        };
-        Ok(cartridge)
+        })
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum RamSize {
     Zero,
     Ram8KiB(u8),
@@ -61,7 +61,7 @@ impl TryFrom<u8> for RamSize {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum RomSize {
     Rom32KiB(u8),
     Rom64KiB(u8),
@@ -99,7 +99,7 @@ impl TryFrom<u8> for RomSize {
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum CartridgeType {
     RomOnly,
     MBC1 {

@@ -1,29 +1,29 @@
-use crate::{io::TimerControl, memory::Memory};
-
-pub const T_CYCLES_PER_FRAME: usize = 70224;
+use crate::memory::Memory;
 
 #[derive(Debug)]
 pub struct Clock {
+    pub master_clock: usize,
     pub m_cycles: usize,
     pub dots: usize,
-    // pub timer_control: TimerControl, // use this eventually
 }
 
 impl Clock {
-    pub fn new(mem: &mut Memory) -> Self {
+    pub fn new() -> Self {
         Self {
+            master_clock: 0,
             m_cycles: 0,
             dots: 0,
-            // timer_control: mem.timer_control(),
         }
     }
     pub fn tick(&mut self, mem: &mut Memory) {
+        self.master_clock += 1;
         self.dots = self.m_cycles * 4;
-        // a scanline has been completed
+        // a scanline has been completed, 456 dots per scanline
         if self.dots % 456 == 0 {
             mem.inc_scanline();
         }
-        // a second should have elapsed, 70224 dots * 59.7 fps
+        // a second should have elapsed
+        // 70224 dots * 59.7 fps = ~4190000 (the clock speed of the system)
         if self.dots % 70224 == 0 {
             // println!("1 second");
         }

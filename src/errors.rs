@@ -1,3 +1,5 @@
+use crate::interrupts::Interrupt;
+
 #[derive(Debug)]
 pub enum DecodeError {
     InvalidOpcodeByte(u8),
@@ -31,16 +33,26 @@ impl std::fmt::Display for JoypadError {
 
 #[derive(Debug)]
 pub enum SystemError {
-    Contention,
-    CartridgeError,
+    InterruptHandlerError(Interrupt, u16),
     TimerControlError,
+    CartridgeError
 }
 
 impl std::error::Error for SystemError {}
 
 impl std::fmt::Display for SystemError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        todo!()
+        match self {
+            Self::InterruptHandlerError(interrupt, handler)  => {
+                write!(f, "Int handler for {interrupt:?} at 0x{handler:0x} failed")
+            },
+            Self::TimerControlError => {
+                write!(f, "Failed to read cartridge")
+            },
+            Self::CartridgeError => {
+                write!(f, "Failed to read cartridge")
+            }
+        }
     }
 }
 

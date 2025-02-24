@@ -21,7 +21,6 @@ pub const BG_OBJ_PALETTE_START: u16 = 0xff68;
 pub const BG_OBJ_PALETTE_END: u16 = 0xff6b;
 pub const WRAM_BANK_SELECT: u16 = 0xff70;
 
-#[allow(dead_code)]
 #[derive(Debug)]
 pub struct LcdControl {
     lcd_ppu_enable: bool,
@@ -49,15 +48,14 @@ impl From<u8> for LcdControl {
     }
 }
 
-#[allow(dead_code)]
 #[derive(Debug)]
 pub struct LcdStatus {
-    lyc_int_select: bool,
+    pub lyc_int_select: bool,
     pub mode_2_int_select: bool,
     pub mode_1_int_select: bool,
     pub mode_0_int_select: bool,
-    lyu_lc: bool,
-    ppu_mode: bool,
+    pub lyu_lc: bool,
+    pub ppu_mode: bool,
 }
 
 impl From<u8> for LcdStatus {

@@ -2,7 +2,7 @@ use regions::*;
 use registers::*;
 
 use crate::{
-    cartridge::CartridgeType,
+    cartridge::{Cartridge, CartridgeType},
     errors::SystemError,
     io::{LcdControl, LcdStatus, TimerControl},
 };
@@ -87,154 +87,27 @@ pub mod regions {
     pub const INTERRUPT_ENABLE_REGISTER: usize = 0xffff;
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 pub struct Memory {
     pub block: [u8; 65536],
+    pub cartridge: Cartridge,
     pub oam_accessible: bool,
     pub vram_accessible: bool,
 }
 
 impl Memory {
-    pub fn read(&mut self, addr: usize) -> u8 {
-        // oam can't be written to during ppu mode 2
-        if addr >= 0xfe00 && addr <= 0xfe9f && !self.oam_accessible {
-            return 0xff;
-        }
-        // vram can't be written to during ppu mode 3
-        if addr >= 0x8000 && addr <= 0x9fff && !self.vram_accessible {
-            return 0xff;
-        }
-        self.block[addr]
-    }
-
-    pub fn write(&mut self, addr: usize, value: u8) {
-        if addr >= 0xfe00 && addr <= 0xfe9f && !self.oam_accessible {
-            return;
-        }
-        if addr >= 0x8000 && addr <= 0x9fff && !self.vram_accessible {
-            return;
-        }
-        self.block[addr] = value;
-    }
-
-    pub fn inc_scanline(&mut self) {
-        let ly = self.read(LY);
-        if self.read(LY) == 153 {
-            self.write(LY, 0);
-        } else {
-            self.write(LY, ly + 1);
-        }
-    }
-
-    pub fn lcd_status(&self) -> LcdStatus {
-        LcdStatus::from(self.block[STAT])
-    }
-
-    pub fn lcd_control(&self) -> LcdControl {
-        LcdControl::from(self.block[LCDC])
-    }
-
-    pub fn timer_control(&self) -> TimerControl {
-        // TODO: this shouldn't unwrap
-        TimerControl::try_from(self.block[TAC]).unwrap()
-    }
-
-    pub fn rom(&self) -> &[u8] {
-        &self.block[ROM_BANK_0_START..ROM_BANK_1_END]
-    }
-
-    pub fn setup_rom(&mut self, rom: Vec<u8>, cartridge_type: CartridgeType) {
-        match cartridge_type {
-            CartridgeType::RomOnly => {
-                self.block[ROM_BANK_0_START..ROM_BANK_0_END]
-                    .copy_from_slice(&rom.as_slice()[ROM_BANK_0_START..ROM_BANK_0_END]);
-                self.block[ROM_BANK_1_START..ROM_BANK_1_END]
-                    .copy_from_slice(&rom.as_slice()[ROM_BANK_1_START..ROM_BANK_1_END]);
-            }
-            _ => (),
-        }
-    }
-
-    pub fn inc_tima(&mut self) {
-        let tima = self.read(TIMA);
-        // This timer is incremented at the clock frequency specified by the TAC register ($FF07).
-        // When the value overflows (exceeds $FF) it is reset to the value specified in TMA (FF06) and an interrupt is requested.
-        if tima == 0xff {
-            self.block[IE] = crate::interrupts::TIMER;
-            self.block[TIMA] = self.read(TMA);
-        }
-        self.block[TIMA] += 1;
-    }
-
-    pub fn inc_div(&mut self) {
-        if self.block[DIV] == 0xff {
-            self.block[DIV] = 0;
-        }
-        self.block[DIV] += 1;
-    }
-
-    pub fn get_rom_bank_0(&self) -> &[u8] {
-        &self.block[ROM_BANK_0_START..ROM_BANK_0_END]
-    }
-
-    pub fn get_rom_bank_1(&self) -> &[u8] {
-        &self.block[ROM_BANK_1_START..ROM_BANK_1_END]
-    }
-
-    pub fn get_rom(&mut self) -> &[u8] {
-        &self.block[ROM_BANK_0_START..ROM_BANK_1_END]
-    }
-
-    pub fn get_vram(&self) -> &[u8] {
-        &self.block[VRAM_START..VRAM_END]
-    }
-
-    pub fn get_external_ram(&self) -> &[u8] {
-        &self.block[EXTERNAL_RAM_START..EXTERNAL_RAM_END]
-    }
-
-    pub fn get_work_ram_1(&self) -> &[u8] {
-        &self.block[WRAM_1_START..WRAM_1_END]
-    }
-
-    pub fn get_work_ram_2(&self) -> &[u8] {
-        &self.block[WRAM_2_START..WRAM_2_END]
-    }
-
-    pub fn get_oam(&self) -> &[u8] {
-        &self.block[OAM_START..OAM_END]
-    }
-
-    pub fn get_io_registers(&self) -> &[u8] {
-        &self.block[IO_REGISTER_START..IO_REGISTER_END]
-    }
-
-    pub fn get_hram(&self) -> &[u8] {
-        &self.block[HRAM_START..HRAM_END]
-    }
-
-    pub fn get_interrupt_flag(&self) -> &u8 {
-        &self.block[INTERRUPT_FLAG]
-    }
-
-    pub fn set_interrupt_registers(&mut self, value: u8) {
-        self.write(INTERRUPT_ENABLE_REGISTER, value);
-    }
-
-    pub fn get_interrupt_registers(&self) -> &u8 {
-        &self.block[INTERRUPT_ENABLE_REGISTER]
-    }
-}
-
-impl Default for Memory {
     /// Fill hardware registers with their default values:
     /// Read more: https://gbdev.io/pandocs/Power_Up_Sequence.html#hardware-registers
-    fn default() -> Self {
+    /// Setup memory banks based on cartridge values:
+    /// Read more: https://gbdev.io/pandocs/MBCs.html
+    pub fn new(cartridge: Cartridge) -> Self {
         let mut mem = Self {
             block: [0u8; 65536],
+            cartridge,
             oam_accessible: false,
             vram_accessible: true,
         };
+        mem.setup_mbc();
         mem.write(JOYP, 0xcf);
         mem.write(SB, 0x00);
         mem.write(SC, 0x7e);
@@ -274,5 +147,107 @@ impl Default for Memory {
         mem.write(WX, 0x00);
         mem.write(IE, 0x00);
         mem
+    }
+    pub fn read(&mut self, addr: usize) -> u8 {
+        // oam can't be read or written to during ppu mode 2 or mode 3
+        if addr >= 0xfe00 && addr <= 0xfe9f && (!self.oam_accessible || !self.vram_accessible) {
+            return 0xff;
+        }
+        // vram can't be read or written to during ppu mode 3
+        if addr >= 0x8000 && addr <= 0x9fff && !self.vram_accessible {
+            return 0xff;
+        }
+        self.block[addr]
+    }
+
+    pub fn write(&mut self, addr: usize, value: u8) {
+        if addr >= 0xfe00 && addr <= 0xfe9f && (!self.oam_accessible || !self.vram_accessible) {
+            return;
+        }
+        if addr >= 0x8000 && addr <= 0x9fff && !self.vram_accessible {
+            return;
+        }
+        self.block[addr] = value;
+    }
+
+    pub fn inc_scanline(&mut self) {
+        let ly = self.read(LY);
+        if self.read(LY) == 153 {
+            self.write(LY, 0);
+        } else {
+            self.write(LY, ly + 1);
+        }
+    }
+
+    pub fn lcd_status(&self) -> LcdStatus {
+        LcdStatus::from(self.block[STAT])
+    }
+
+    pub fn lcd_control(&self) -> LcdControl {
+        LcdControl::from(self.block[LCDC])
+    }
+
+    pub fn timer_control(&self) -> TimerControl {
+        // TODO: this shouldn't unwrap
+        TimerControl::try_from(self.block[TAC]).unwrap()
+    }
+
+    pub fn rom(&self) -> &[u8] {
+        &self.block[ROM_BANK_0_START..ROM_BANK_1_END]
+    }
+    
+    pub fn setup_mbc(&mut self) {
+        println!("{:?}", self.cartridge);
+        match self.cartridge.cartridge_type {
+            CartridgeType::RomOnly => {
+                self.block[ROM_BANK_0_START..ROM_BANK_0_END]
+                    .copy_from_slice(&self.cartridge.rom.as_slice()[ROM_BANK_0_START..ROM_BANK_0_END]);
+                self.block[ROM_BANK_1_START..ROM_BANK_1_END]
+                    .copy_from_slice(&self.cartridge.rom.as_slice()[ROM_BANK_1_START..ROM_BANK_1_END]);
+                println!("{:?}", self.block[0x0150]);
+            },
+            CartridgeType::MBC1 { ram, battery } => (),
+            CartridgeType::MBC2 { battery } => (),
+            CartridgeType::MBC3 { timer, ram, battery } => (),
+            _ => (),
+        }
+    }
+
+    pub fn inc_tima(&mut self) {
+        let tima = self.read(TIMA);
+        // This timer is incremented at the clock frequency specified by the TAC register ($FF07).
+        // When the value overflows (exceeds $FF) it is reset to the value specified in TMA (FF06) and an interrupt is requested.
+        if tima == 0xff {
+            self.block[IE] = crate::interrupts::TIMER;
+            self.block[TIMA] = self.read(TMA);
+        }
+        self.block[TIMA] += 1;
+    }
+
+    pub fn inc_div(&mut self) {
+        if self.block[DIV] == 0xff {
+            self.block[DIV] = 0;
+        }
+        self.block[DIV] += 1;
+    }
+
+    pub fn get_vram(&self) -> &[u8] {
+        &self.block[VRAM_START..VRAM_END]
+    }
+
+    pub fn get_oam(&self) -> &[u8] {
+        &self.block[OAM_START..OAM_END]
+    }
+
+    pub fn get_interrupt_flag(&self) -> &u8 {
+        &self.block[INTERRUPT_FLAG]
+    }
+
+    pub fn set_interrupt_registers(&mut self, value: u8) {
+        self.write(INTERRUPT_ENABLE_REGISTER, value);
+    }
+
+    pub fn get_interrupt_registers(&self) -> &u8 {
+        &self.block[INTERRUPT_ENABLE_REGISTER]
     }
 }

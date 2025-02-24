@@ -9,61 +9,67 @@ use crate::{
     errors::SystemError,
     instructions::jumps::call_n16,
     interrupts::Interrupt,
-    memory::Memory,
+    memory::{registers::LY, Memory},
 };
 
 pub struct System {
     pub cpu: Cpu,
     pub apu: Apu,
     pub ppu: Ppu,
-    pub mem: Memory,
     pub clock: Clock,
-    pub cartridge: Cartridge,
+    pub mem: Memory,
 }
-
-pub const VBLANK_INT_HANDLER: u16 = 0x40;
 
 impl System {
     pub fn new(game: Vec<u8>) -> Result<Self, SystemError> {
-        let mut mem = Memory::default();
-        let cartridge =
-            Cartridge::new(game.clone(), &mut mem).map_err(|_| SystemError::CartridgeError)?;
+        let cartridge = Cartridge::new(game.clone()).map_err(|_| SystemError::CartridgeError)?;
+        let mut mem = Memory::new(cartridge);
         Ok(Self {
             cpu: Cpu::default(),
             apu: Apu::default(),
             ppu: Ppu::new(),
+            clock: Clock::new(),
             mem,
-            clock: Clock::new(&mut mem),
-            cartridge,
         })
     }
-
-    fn handle_interrupts(&mut self) {
-        if self.ppu.mode == PpuMode::Drawing {
-            println!("drawing");
-        }
+    /// The following interrupt service routine is executed when control is being transferred to an interrupt handler:
+    /// Two wait states are executed (2 M-cycles pass while nothing happens; presumably the CPU is executing nops during this time).
+    /// The current value of the PC register is pushed onto the stack, consuming 2 more M-cycles.
+    /// The PC register is set to the address of the handler (one of: $40, $48, $50, $58, $60). This consumes one last M-cycle.
+    fn handle_interrupt(&mut self) -> Result<(), SystemError> {
         if let Some(interrupt) = Interrupt::get_interrupt(self.mem.get_interrupt_registers()) {
-            match interrupt {
-                Interrupt::VBlank => {
-                    let _ = call_n16(VBLANK_INT_HANDLER, &mut self.cpu, &mut self.mem);
-                }
-                _ => (),
-            }
+            // https://gbdev.io/pandocs/Interrupt_Sources.html
+            let handler = match interrupt {
+                Interrupt::VBlank => 0x40,
+                Interrupt::Stat => 0x48,
+                Interrupt::Timer => 0x50,
+                Interrupt::Serial => 0x58,
+                Interrupt::Joypad => 0x60
+            };
+            call_n16(handler, &mut self.cpu, &mut self.mem)
+                .map_err(|_| SystemError::InterruptHandlerError(interrupt, handler))?;
         }
+        Ok(())
     }
 
     pub fn execute(&mut self) {
         self.ppu.canvas.set_draw_color(Color::WHITE);
+        self.ppu.canvas.present();
         'running: loop {
-            self.clock.tick(&mut self.mem);
             // execute instructions
             self.clock.m_cycles += self.cpu.execute(&mut self.mem).unwrap() as usize;
+            // advance the clock
+            self.clock.tick(&mut self.mem);
             // process audio
             self.apu.process();
             // handle interrupts
-            self.handle_interrupts();
-            // render
-            self.ppu.render_scanline(&mut self.mem, &self.clock);
+            if self.cpu.ime {
+                self.handle_interrupt();
+            }
+            // scanline 144 starts vblank mode, so only render if LY <= 143
+            if self.mem.read(LY) <= 143 {
+                self.ppu.render_scanline(&mut self.mem, &self.clock);
+            }
             for event in self.ppu.event_pump.poll_iter() {
                 match event {
                     Event::Quit { .. }
@@ -74,8 +80,6 @@ impl System {
                     _ => {}
                 }
             }
-            // draw the canvas
-            self.ppu.canvas.present();
         }
     }
 }
