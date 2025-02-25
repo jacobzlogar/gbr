@@ -181,12 +181,14 @@ pub fn rst(vec: u16, cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instr
 }
 
 mod tests {
+    use crate::{cartridge::Cartridge, system::System};
+
     use super::*;
 
     #[test]
     fn test_call_n16() {
         let mut cpu = Cpu::default();
-        let mut mem = Memory::default();
+        let mut mem = Memory::new(Cartridge::new(vec![0; 0xffff]).unwrap());
         assert_eq!(cpu.registers.sp, 0xfffe);
         call_n16(0x420, &mut cpu, &mut mem).unwrap();
         assert_eq!(cpu.registers.sp, 0xfffc);
@@ -197,7 +199,7 @@ mod tests {
     #[test]
     fn test_call_cc_n16() {
         let mut cpu = Cpu::default();
-        let mut mem = Memory::default();
+        let mut mem = Memory::new(Cartridge::new(vec![0; 0xffff]).unwrap());
         assert_eq!(cpu.registers.sp, 0xfffe);
         call_cc_n16(0x420, Condition::Carry, &mut cpu, &mut mem).unwrap();
         assert_eq!(cpu.registers.sp, 0xfffc);
@@ -249,7 +251,7 @@ mod tests {
     #[test]
     fn test_ret_cc() {
         let mut cpu = Cpu::default();
-        let mut mem = Memory::default();
+        let mut mem = Memory::new(Cartridge::new(vec![0; 0xffff]).unwrap());
         push_stack(cpu.registers.pc + 3, &mut cpu, &mut mem);
         ret_cc(Condition::Carry, &mut cpu, &mut mem).unwrap();
         assert_eq!(cpu.registers.pc, 0x104);

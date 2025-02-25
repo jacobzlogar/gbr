@@ -446,6 +446,7 @@ pub fn swap_hl(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instruction
 }
 
 mod tests {
+    use cartridge::Cartridge;
     use cpu::Flags;
 
     use super::*;
@@ -467,7 +468,7 @@ mod tests {
 
     #[test]
     fn test_rl_hl() {
-        let mut mem = Memory::default();
+        let mut mem = Memory::new(Cartridge::new(vec![0; 0xffff]).unwrap());
         let mut cpu = Cpu::default();
         cpu.registers.hl = 0x420;
         let hl = cpu.registers.hl;
@@ -512,7 +513,7 @@ mod tests {
 
     #[test]
     fn test_rlc_hl() {
-        let mut mem = Memory::default();
+        let mut mem = Memory::new(Cartridge::new(vec![0; 0xffff]).unwrap());
         let mut cpu = Cpu::default();
         cpu.registers.hl = 0x420;
         let hl = cpu.registers.hl;
@@ -569,7 +570,7 @@ mod tests {
 
     #[test]
     fn test_rr_hl() {
-        let mut mem = Memory::default();
+        let mut mem = Memory::new(Cartridge::new(vec![0; 0xffff]).unwrap());
         let mut cpu = Cpu::default();
         cpu.registers.hl = 0x420;
         let hl = cpu.registers.hl;
@@ -613,7 +614,7 @@ mod tests {
     }
     #[test]
     fn test_sla_hl() {
-        let mut mem = Memory::default();
+        let mut mem = Memory::new(Cartridge::new(vec![0; 0xffff]).unwrap());
         let mut cpu = Cpu::default();
         cpu.registers.hl = 0x420;
         let hl = cpu.registers.hl;
@@ -643,7 +644,7 @@ mod tests {
     }
     #[test]
     fn test_sra_hl() {
-        let mut mem = Memory::default();
+        let mut mem = Memory::new(Cartridge::new(vec![0; 0xffff]).unwrap());
         let mut cpu = Cpu::default();
         cpu.registers.hl = 0x420;
         let hl = cpu.registers.hl;
@@ -672,7 +673,7 @@ mod tests {
     }
     #[test]
     fn test_srl_hl() {
-        let mut mem = Memory::default();
+        let mut mem = Memory::new(Cartridge::new(vec![0; 0xffff]).unwrap());
         let mut cpu = Cpu::default();
         cpu.registers.hl = 0x420;
         let hl = cpu.registers.hl;
@@ -702,7 +703,7 @@ mod tests {
 
     #[test]
     fn test_swap_hl() {
-        let mut mem = Memory::default();
+        let mut mem = Memory::new(Cartridge::new(vec![0; 0xffff]).unwrap());
         let mut cpu = Cpu::default();
         cpu.registers.hl = 0x420;
         let hl = cpu.registers.hl;

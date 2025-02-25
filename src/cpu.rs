@@ -203,7 +203,8 @@ impl Cpu {
             match instruction.mnemonic {
                 Mnemonic::NOP | Mnemonic::RST => (),
                 Mnemonic::RETI | Mnemonic::EI => self.ime = true,
-                _ => println!("{instruction:?}"),
+                _ => ()
+                // _ => println!("{instruction:?}"),
             };
             return Ok(instruction.cycles);
         }

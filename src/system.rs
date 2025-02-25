@@ -23,6 +23,7 @@ pub struct System {
 impl System {
     pub fn new(game: Vec<u8>) -> Result<Self, SystemError> {
         let cartridge = Cartridge::new(game.clone()).map_err(|_| SystemError::CartridgeError)?;
+        // println!("{:?} {:?}", cartridge.cgb_flag, cartridge.gbp);
         let mut mem = Memory::new(cartridge);
         Ok(Self {
             cpu: Cpu::default(),
@@ -36,6 +37,7 @@ impl System {
     /// Two wait states are executed (2 M-cycles pass while nothing happens; presumably the CPU is executing nops during this time).
     /// The current value of the PC register is pushed onto the stack, consuming 2 more M-cycles.
     /// The PC register is set to the address of the handler (one of: $40, $48, $50, $58, $60). This consumes one last M-cycle.
+    /// Read more: https://gbdev.io/pandocs/Interrupts.html
     fn handle_interrupt(&mut self) -> Result<(), SystemError> {
         if let Some(interrupt) = Interrupt::get_interrupt(self.mem.get_interrupt_registers()) {
             // https://gbdev.io/pandocs/Interrupt_Sources.html
@@ -56,20 +58,22 @@ impl System {
         self.ppu.canvas.set_draw_color(Color::WHITE);
         self.ppu.canvas.present();
         'running: loop {
-            // execute instructions
-            self.clock.m_cycles += self.cpu.execute(&mut self.mem).unwrap() as usize;
-            // advance the clock
-            self.clock.tick(&mut self.mem);
-            // process audio
-            self.apu.process();
-            // handle interrupts
-            if self.cpu.ime {
-                self.handle_interrupt();
-            }
-            // scanline 144 starts vblank mode, so only render if LY <= 143
-            if self.mem.read(LY) <= 143 {
-                self.ppu.render_scanline(&mut self.mem, &self.clock);
-            }
+            self.ppu.test();
+            // // execute instructions
+            // self.clock.m_cycles += self.cpu.execute(&mut self.mem).unwrap() as usize;
+            // // advance the clock
+            // self.clock.tick(&mut self.mem);
+            // // process audio
+            // self.apu.process();
+            // // handle interrupts
+            // if self.cpu.ime {
+            //     self.handle_interrupt();
+            // }
+            // // scanline 144 starts vblank mode, so only render if LY <= 143
+            // if self.mem.read(LY) <= 143 {
+            //     self.ppu.render_scanline(&mut self.mem, &self.clock);
+            // }
+            self.ppu.canvas.present();
             for event in self.ppu.event_pump.poll_iter() {
                 match event {
                     Event::Quit { .. }

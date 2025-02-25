@@ -210,7 +210,7 @@ pub fn push_r16(r16: R16, cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<
 }
 
 mod tests {
-    use crate::instructions::add_a_n8;
+    use crate::{cartridge::Cartridge, instructions::add_a_n8};
 
     use super::*;
 
@@ -228,7 +228,7 @@ mod tests {
     #[test]
     fn test_push_af() {
         let mut cpu = Cpu::default();
-        let mut mem = Memory::default();
+        let mut mem = Memory::new(Cartridge::new(vec![0; 0xffff]).unwrap());
         push_af(&mut cpu, &mut mem).unwrap();
     }
 }

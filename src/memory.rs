@@ -93,6 +93,7 @@ pub struct Memory {
     pub cartridge: Cartridge,
     pub oam_accessible: bool,
     pub vram_accessible: bool,
+    pub rom_banks: Vec<[u8; 16383]>,
 }
 
 impl Memory {
@@ -106,6 +107,7 @@ impl Memory {
             cartridge,
             oam_accessible: false,
             vram_accessible: true,
+            rom_banks: vec![],
         };
         mem.setup_mbc();
         mem.write(JOYP, 0xcf);
@@ -188,7 +190,6 @@ impl Memory {
     }
 
     pub fn timer_control(&self) -> TimerControl {
-        // TODO: this shouldn't unwrap
         TimerControl::try_from(self.block[TAC]).unwrap()
     }
 
@@ -197,20 +198,15 @@ impl Memory {
     }
     
     pub fn setup_mbc(&mut self) {
-        println!("{:?}", self.cartridge);
-        match self.cartridge.cartridge_type {
-            CartridgeType::RomOnly => {
-                self.block[ROM_BANK_0_START..ROM_BANK_0_END]
-                    .copy_from_slice(&self.cartridge.rom.as_slice()[ROM_BANK_0_START..ROM_BANK_0_END]);
-                self.block[ROM_BANK_1_START..ROM_BANK_1_END]
-                    .copy_from_slice(&self.cartridge.rom.as_slice()[ROM_BANK_1_START..ROM_BANK_1_END]);
-                println!("{:?}", self.block[0x0150]);
-            },
-            CartridgeType::MBC1 { ram, battery } => (),
-            CartridgeType::MBC2 { battery } => (),
-            CartridgeType::MBC3 { timer, ram, battery } => (),
-            _ => (),
-        }
+        let chunks: Vec<[u8; 16383]> = self.cartridge.rom
+            .chunks_exact(16383)
+            .map(|chunk| <[u8; 16383]>::try_from(chunk).unwrap())
+            .collect();
+        self.rom_banks = chunks;
+        self.block[ROM_BANK_0_START..ROM_BANK_0_END]
+            .copy_from_slice(&self.rom_banks[0]);
+        self.block[ROM_BANK_1_START..ROM_BANK_1_END]
+            .copy_from_slice(&self.rom_banks[1]);
     }
 
     pub fn inc_tima(&mut self) {

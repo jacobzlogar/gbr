@@ -19,14 +19,6 @@
 - http://gbdev.gg8.se/wiki/articles/Pan_Docs
 - http://gbdev.gg8.se/wiki/articles/The_Cartridge_Header
 
-- the clock speed of the GB is 4.19mhz or 4194304
-- 1 frame takes 70224 dots and there are ~60 frames per second
-- there are 154 scanlines in a frame
-- each scanline takes 456 dots
-- a t-cycle is the base unit of time, a dot is 4 t-cycles
-- LY starts at 0 and increments up to 143, scanlines 144->153 are vblank
-- reset LY at scanline 153
-
 TODO:
 - [x] decide what to do with the ~Thunk~ type param signature, if i refactor this it means changing all of the dispatch table params as well
 - [x] create prefix table for bitwise ops dispatched from 0xcb
@@ -41,21 +33,16 @@ TODO:
   - [ ] DAA 
 
 - Timing:
-
-  Sections of memory are inaccessible during PPU  modes 2/3 which isn't "directly" tied
-  to anything in the timing, since mode 3 can run for a variable amount of timte
-  I thought one of the lcd registers contained something about mode 3 but it seems that only mode's 0-2
-  are represented in the LCD status register, so how do i coordinate the access to those
-  memory regions with the ppu's current mode
-  
+  - I think what i have is mostly working, hard to tell without a full test
   Some context:
   - each scanline runs for 70224 dots
   - 59.7 frames per second
     (insert (format "%d" (* 59.7 70224))) = 4192372 (which is the clock speed of the console)
-  
-  - [ ] 
+
 - Interrupts:
-  - [ ] figure out how to coordinate interrupts
+  - [ ]
 - Rendering:
-  - [ ] 
-   
+  - [ ]
+
+- Memory Mapping
+  - [ ] properly map the things

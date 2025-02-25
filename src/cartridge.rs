@@ -1,3 +1,5 @@
+use std::alloc::System;
+
 use crate::{errors::CartridgeError, memory::Memory};
 
 #[derive(Debug, Clone)]
@@ -6,7 +8,8 @@ pub struct Cartridge {
     pub cartridge_type: CartridgeType,
     pub logo: Vec<u8>,
     pub title: String,
-    pub rom_size: RomSize,
+    pub cgb_flag: bool,
+    pub rom_size: usize,
     pub ram_size: RamSize,
 }
 
@@ -16,6 +19,7 @@ pub const LOGO_START: usize = 0x0104;
 pub const LOGO_END: usize = 0x0133;
 pub const TITLE_START: usize = 0x0134;
 pub const TITLE_END: usize = 0x0143;
+pub const CGB_FLAG: usize = 0x0143; // huh?
 pub const CARTRIDGE_TYPE: usize = 0x0147;
 pub const ROM_SIZE: usize = 0x0148;
 pub const RAM_SIZE: usize = 0x0149;
@@ -25,13 +29,18 @@ impl Cartridge {
         let cartridge_type = CartridgeType::try_from(rom[CARTRIDGE_TYPE])?;
         let title = String::from_utf8_lossy(&rom[TITLE_START..TITLE_END]).to_string();
         let logo = &rom[LOGO_START..LOGO_END].to_vec();
-        let rom_size = RomSize::try_from(rom[ROM_SIZE])?;
+        let cgb_flag = match &rom[CGB_FLAG] {
+            0x80|0xc0 => true,
+            _ => false
+        };
+        let rom_size = get_rom_size(rom[ROM_SIZE])?;
         let ram_size = RamSize::try_from(rom[RAM_SIZE])?;
         Ok(Cartridge {
             rom,
             cartridge_type,
             title,
             logo: logo.to_vec(),
+            cgb_flag,
             ram_size,
             rom_size,
         })
@@ -61,40 +70,21 @@ impl TryFrom<u8> for RamSize {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub enum RomSize {
-    Rom32KiB(u8),
-    Rom64KiB(u8),
-    Rom128KiB(u8),
-    Rom256KiB(u8),
-    Rom512KiB(u8),
-    Rom1MiB(u8),
-    Rom2MiB(u8),
-    Rom4MiB(u16),
-    Rom8MiB(u16),
-    Rom1100KiB(u8),
-    Rom1200KiB(u8),
-    Rom1500KiB(u8),
-}
-
-impl TryFrom<u8> for RomSize {
-    type Error = CartridgeError;
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        match value {
-            0x00 => Ok(RomSize::Rom32KiB(2)),
-            0x01 => Ok(RomSize::Rom64KiB(4)),
-            0x02 => Ok(RomSize::Rom128KiB(8)),
-            0x03 => Ok(RomSize::Rom256KiB(16)),
-            0x04 => Ok(RomSize::Rom512KiB(32)),
-            0x05 => Ok(RomSize::Rom1MiB(64)),
-            0x06 => Ok(RomSize::Rom2MiB(128)),
-            0x07 => Ok(RomSize::Rom4MiB(256)),
-            0x08 => Ok(RomSize::Rom8MiB(512)),
-            0x52 => Ok(RomSize::Rom1100KiB(72)),
-            0x53 => Ok(RomSize::Rom1200KiB(80)),
-            0x54 => Ok(RomSize::Rom1500KiB(96)),
-            _ => Err(CartridgeError::InvalidRomSize(value)),
-        }
+fn get_rom_size(value: u8) -> Result<usize, CartridgeError> {
+    match value {
+        0x00 => Ok(2),
+        0x01 => Ok(4),
+        0x02 => Ok(8),
+        0x03 => Ok(16),
+        0x04 => Ok(32),
+        0x05 => Ok(64),
+        0x06 => Ok(128),
+        0x07 => Ok(256),
+        0x08 => Ok(512),
+        0x52 => Ok(72),
+        0x53 => Ok(80),
+        0x54 => Ok(96),
+        _ => Err(CartridgeError::InvalidRomSize(value)),
     }
 }
 
