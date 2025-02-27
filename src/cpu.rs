@@ -11,7 +11,6 @@ pub enum Condition {
     Carry,
 }
 
-/// Represents CPU registers of the Game Boy
 #[derive(Debug, Copy, Clone)]
 pub struct Registers {
     pub a: u8,
@@ -21,7 +20,7 @@ pub struct Registers {
     pub e: u8,
     pub h: u8,
     pub l: u8,
-    pub af: u16, // accumulator & flags
+    pub af: u16,
     pub bc: u16,
     pub de: u16,
     pub hl: u16,
@@ -64,7 +63,7 @@ impl Registers {
             R8::L => self.l,
         }
     }
-    /// Set r8, mask higher or lower bits of parent 16-bit register and update accordingly.
+    /// Update 8-bit register, mask higher or lower bits of parent 16-bit register and update accordingly.
     pub fn set_r8(&mut self, register: R8, value: u8) {
         match register {
             R8::A => {
@@ -220,9 +219,8 @@ pub struct Flags {
     pub half_carry: bool,
     pub carry: bool,
 }
-/// The flags register is actually the lower 8-bits of the AF register
-/// flags are a part of almost all operations.
-/// i've opted for a higher-level representation of flags instead of bit-fiddling the lower 8 bits of the AF register constantly
+// The flags register is actually the lower 8-bits of the AF register, since flags are a part of almost every operation
+// i've opted for a higher-level representation of flags instead of bit-fiddling the lower 8 bits of the AF register constantly
 impl Flags {
     pub fn set(&mut self, value: u8) {
         self.zero = (value >> 7) & 1 == 1;
@@ -247,7 +245,7 @@ impl Default for Flags {
         }
     }
 }
-// make sure we can still cast flags back into a byte when certain operations i.e: PUSH AF need to operate on them
+// make sure we can still cast flags back into an u8 when certain operations (PUSH AF) expect a byte
 impl Into<u8> for Flags {
     fn into(self) -> u8 {
         let mut flags: u8 = 0;

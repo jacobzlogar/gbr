@@ -20,15 +20,9 @@
 - http://gbdev.gg8.se/wiki/articles/The_Cartridge_Header
 
 TODO:
-- [x] decide what to do with the ~Thunk~ type param signature, if i refactor this it means changing all of the dispatch table params as well
-- [x] create prefix table for bitwise ops dispatched from 0xcb
 - Decoding:
-  - [x] bitshift instructions
-  - [x] loadh immed -> a
-  - [x] jump/subroutine instructions
-  - [x] carry flag instructions
   - [ ] stack manipulation instructions
-  - e8 instructions
+  - e8 instructions (double check this)
   - [ ] halt instruction
   - [ ] DAA 
 
@@ -37,12 +31,12 @@ TODO:
   Some context:
   - each scanline runs for 70224 dots
   - 59.7 frames per second
-    (insert (format "%d" (* 59.7 70224))) = 4192372 (which is the clock speed of the console)
-
+    59.7 * 70224 = 4192372 (which is the clock speed of the console)
 - Interrupts:
   - [ ]
 - Rendering:
   - [ ]
-
 - Memory Mapping
   - [ ] properly map the things
+
+- [ ] how do tile maps work??????????????????????

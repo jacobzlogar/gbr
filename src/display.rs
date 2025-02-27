@@ -1,14 +1,16 @@
 extern crate sdl3;
 
 use sdl3::pixels::{Color, PixelFormat};
-use sdl3::render::{Canvas, FRect, Texture, TextureAccess};
-use sdl3::sys::pixels::{SDL_PixelFormat, SDL_PixelFormatDetails, SDL_PIXELFORMAT_RGB24};
-use sdl3::video::Window;
+use sdl3::render::{Canvas, FRect, Texture, TextureAccess, TextureCreator};
+use sdl3::sys::pixels::{SDL_PixelFormat, SDL_PixelFormatDetails, SDL_PIXELFORMAT_ABGR32, SDL_PIXELFORMAT_RGB24};
+use sdl3::sys::stdinc::SDL_sinf;
+use sdl3::video::{Window, WindowContext};
 use sdl3::{Error, EventPump};
 
 use crate::clock::Clock;
+use crate::io::LcdControl;
 use crate::memory::Memory;
-use crate::memory::registers::LY;
+use crate::memory::registers::{LCDC, LY};
 /// ```ignore
 /// These modes represent the modes the PPU cycles between during a frame
 ///
@@ -28,7 +30,7 @@ use crate::memory::registers::LY;
 #[derive(PartialEq, Eq)]
 pub enum PpuMode {
     HorizontalBlank, // waiting until the end of the scanline
-    VerticalBlank,   // waiting until the next frame
+    VerticalBlank,   // waiting until the next frame, all vram sectitons become accessible to cpu
     OAMScan,         // searching for OBJS which overlap this line
     Drawing,         // sending pixels to the LCD
 }
@@ -41,18 +43,26 @@ pub struct Ppu {
     pub scanline: u16,
     pub mode: PpuMode,
     pub frame_buffer: Vec<u16>,
+    tile_map: Vec<u8>,
+    // bg_tile_map: Vec<u8>,
+    tile_data: Vec<[u8; 64]>,
+    pub texture_creator: TextureCreator<WindowContext>
 }
 
 impl Ppu {
     pub fn new() -> Self {
         let (canvas, event_pump) = setup_ctx().unwrap();
+        let texture_creator = canvas.texture_creator();
         Self {
+            tile_map: vec![],
+            tile_data: vec![[0u8; 64]],
             canvas,
             event_pump,
             obj_penalty: 0,
             scanline: 0,
             mode: PpuMode::OAMScan,
             frame_buffer: vec![],
+            texture_creator
         }
     }
     pub fn oam_scan(&mut self, mem: &mut Memory, scanline: u8) {
@@ -62,31 +72,16 @@ impl Ppu {
             }
         }
     }
-    pub fn test(&mut self) {
-        let texture_creator = self.canvas.texture_creator();
-        let mut texture = texture_creator.create_texture(
-            PixelFormat::try_from(SDL_PIXELFORMAT_RGB24).unwrap(),
-            TextureAccess::Streaming,
-            640,
-            480,
-        ).unwrap();
-        let mut pixels = TILES.chunks_exact(2).flat_map(|tile| {
-            (0..8).map(move |i| {
-                let mut int = (tile[0] >> i) & 1;
-                int |= ((tile[1] >> i) & 1) << 1;
-                PALETTE[int as usize]
-            })
-        }).collect::<Vec<u8>>();
-        let mut rgb_pixels = [0u8; 13440];
 
-        texture.update(None, &rgb_pixels, 8 * 3).unwrap();
-
-        self.canvas.copy(&texture, None, None).unwrap();
-        // println!("{tiles:?}");
-    }
     pub fn render_scanline(&mut self, mem: &mut Memory, clock: &Clock) {
         let scanline = mem.read(LY);
         let lcdc = mem.lcd_control();
+        let tiles = mem.block[lcdc.tile_data_area[0]..=lcdc.tile_data_area[1]]
+            .chunks_exact(16)
+            .map(|tile| decode_tile(tile))
+            .collect::<Vec<[u8; 64]>>();
+        println!("\n{:?}", tiles);
+
         match scanline {
             143 => self.mode = PpuMode::VerticalBlank,
             _ => (),
@@ -96,13 +91,28 @@ impl Ppu {
                 self.oam_scan(mem, scanline);
                 self.mode = PpuMode::OAMScan;
             }
-            81 => {
+            81..=252 => {
+                if lcdc.window_enable {
+                    // println!("window_tile_map: {:?}", lcdc.window_tile_map_area);
+                }
+                if lcdc.bg_window_enable {
+                    self.tile_map = mem.block[lcdc.tile_map_area[0]..=lcdc.tile_map_area[1]]
+                        .to_vec();
+                }
+                self.texture_creator.create_texture_static(
+                    PixelFormat::try_from(SDL_PIXELFORMAT_RGB24).unwrap(),
+                    160,
+                    144
+                );
                 // TODO: add obj penalty variable mode length algorithm
                 self.mode = PpuMode::Drawing;
-                mem.oam_accessible = false;
-                mem.vram_accessible = false;
+                // mem.oam_accessible = false;
+                // mem.vram_accessible = false;
             }
-            _ => (),
+            _ => {
+                mem.oam_accessible = true;
+                mem.vram_accessible = true;
+            },
         }
     }
 }
@@ -119,39 +129,54 @@ pub fn setup_ctx() -> Result<(Canvas<Window>, EventPump), Error> {
     Ok((window.into_canvas(), sdl_context.event_pump()?))
 }
 
-pub const TILEMAP: [u8; 576] = [
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x00, 0x00, 0x01, 0x02, 0x03, 0x01, 0x04, 0x03,
-    0x01, 0x05, 0x00, 0x01, 0x05, 0x00, 0x06, 0x04, 0x07, 0x00, 0x00, 0x00, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0x00, 0x00, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0b, 0x0e, 0x0f, 0x08, 0x0e, 0x0f,
-    0x10, 0x11, 0x12, 0x13, 0x00, 0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x00, 0x00, 0x14, 0x15,
-    0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x0f, 0x14, 0x1b, 0x0f, 0x14, 0x1c, 0x16, 0x1d, 0x00, 0x00,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x00, 0x00, 0x1e, 0x1f, 0x20, 0x21, 0x22, 0x23, 0x24, 0x22,
-    0x25, 0x1e, 0x22, 0x25, 0x26, 0x22, 0x27, 0x1d, 0x00, 0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0x00, 0x00, 0x01, 0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2b, 0x2e, 0x2d, 0x2f, 0x30, 0x2d, 0x31,
-    0x32, 0x33, 0x00, 0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x00, 0x00, 0x08, 0x34, 0x0a, 0x0b,
-    0x11, 0x0a, 0x0b, 0x35, 0x36, 0x0b, 0x0e, 0x0f, 0x08, 0x37, 0x0a, 0x38, 0x00, 0x00, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0x00, 0x00, 0x14, 0x39, 0x16, 0x17, 0x1c, 0x16, 0x17, 0x3a, 0x3b, 0x17,
-    0x1b, 0x0f, 0x14, 0x3c, 0x16, 0x1d, 0x00, 0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x00, 0x00,
-    0x1e, 0x3d, 0x3e, 0x3f, 0x22, 0x27, 0x21, 0x1f, 0x20, 0x21, 0x22, 0x25, 0x1e, 0x22, 0x40, 0x1d,
-    0x00, 0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x00, 0x00, 0x00, 0x41, 0x42, 0x43, 0x44, 0x30,
-    0x33, 0x41, 0x45, 0x43, 0x41, 0x30, 0x43, 0x41, 0x30, 0x33, 0x00, 0x00, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0,
-];
+/// Each tile is 16 bytes, after decoding each tile contains 8x8 pixels and has a color depth of 2 bits per pixel
+/// A line is made up of 2 tiles where the even indices specify the LSB of the color and the odd the MSB
+/// e.g: given 00111100 01111110 the first byte would be 0x0 and the second byte would be 0x2
+pub fn decode_tile(tile: &[u8]) -> [u8; 64] {
+    let mut output: [u8; 64] = [0; 64];
+    let low: [u8; 8] = [
+        tile[0],
+        tile[2],
+        tile[4],
+        tile[6],
+        tile[8],
+        tile[10],
+        tile[12],
+        tile[14],
+    ];
+    let high: [u8; 8] = [
+        tile[1],
+        tile[3],
+        tile[5],
+        tile[7],
+        tile[9],
+        tile[11],
+        tile[13],
+        tile[15]
+    ];
+    for i in 0..64 {
+        let j = i / 8;
+        let k = i % 8;
+        let mut pixel = (low[j] >> k) & 1;
+        pixel |= ((high[j] >> k) & 1) << 1;
+        output[i] = PALETTE[pixel as usize];
+    }
+    return output;
+}
 
+pub mod tests {
+    use crate::memory::Memory;
+    use crate::cartridge::Cartridge;
+
+    use super::{decode_tile, TILES};
+    #[test]
+    fn test_decode_tile() {
+        let decoded = TILES.chunks_exact(16)
+            .map(|tile| decode_tile(tile))
+            .collect::<Vec<[u8; 64]>>();
+        println!("{decoded:?}");
+    }
+}
 pub const TILES: [u8; 1120] = [
     0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff,
     0x00, 0xff, 0x00, 0x80, 0x00, 0x80, 0x00, 0x80, 0x00, 0x80, 0x00, 0x80, 0x00, 0x80, 0x00, 0x80,

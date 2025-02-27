@@ -218,6 +218,8 @@ pub fn ld_immed_r16_a(r16: R16, cpu: &mut Cpu, mem: &mut Memory) -> InstructionR
 pub fn ld_a_hli(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instruction> {
     let hl = cpu.registers.hl;
     let a = cpu.registers.a;
+    let lcdc = mem.lcd_control();
+    println!("\nloading register a {a:0x} into 0x{hl:0x}\n{lcdc}");
     mem.write(hl as usize, a);
     cpu.registers.set_r16(R16::HL, hl + 1);
     cpu.registers.pc += 1;
@@ -262,6 +264,7 @@ pub fn ld_hld_a(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instructio
 pub fn ld_hli_a(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instruction> {
     let hl = cpu.registers.hl;
     let byte = mem.read(hl as usize);
+    // println!("loading 0x{byte:0x} into 0x{hl:0x}");
     cpu.registers.set_r8(R8::A, byte);
     cpu.registers.set_r16(R16::HL, hl + 1);
     cpu.registers.pc += 1;

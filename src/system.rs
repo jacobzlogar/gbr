@@ -23,8 +23,8 @@ pub struct System {
 impl System {
     pub fn new(game: Vec<u8>) -> Result<Self, SystemError> {
         let cartridge = Cartridge::new(game.clone()).map_err(|_| SystemError::CartridgeError)?;
-        // println!("{:?} {:?}", cartridge.cgb_flag, cartridge.gbp);
         let mut mem = Memory::new(cartridge);
+        let lcdc = mem.lcd_control();
         Ok(Self {
             cpu: Cpu::default(),
             apu: Apu::default(),
@@ -54,25 +54,24 @@ impl System {
         Ok(())
     }
 
-    pub fn execute(&mut self) {
+    pub fn run(&mut self) {
         self.ppu.canvas.set_draw_color(Color::WHITE);
-        self.ppu.canvas.present();
+        self.ppu.canvas.clear();
         'running: loop {
-            self.ppu.test();
-            // // execute instructions
-            // self.clock.m_cycles += self.cpu.execute(&mut self.mem).unwrap() as usize;
-            // // advance the clock
-            // self.clock.tick(&mut self.mem);
-            // // process audio
-            // self.apu.process();
-            // // handle interrupts
-            // if self.cpu.ime {
-            //     self.handle_interrupt();
-            // }
-            // // scanline 144 starts vblank mode, so only render if LY <= 143
-            // if self.mem.read(LY) <= 143 {
-            //     self.ppu.render_scanline(&mut self.mem, &self.clock);
-            // }
+            // execute instructions
+            self.clock.m_cycles += self.cpu.execute(&mut self.mem).unwrap() as usize;
+            // advance the clock
+            self.clock.tick(&mut self.mem);
+            // process audio
+            self.apu.process();
+            // handle interrupts
+            if self.cpu.ime {
+                self.handle_interrupt();
+            }
+            // scanline 144 is the beginning of vblank
+            if self.mem.read(LY) <= 143 {
+                self.ppu.render_scanline(&mut self.mem, &self.clock);
+            }
             self.ppu.canvas.present();
             for event in self.ppu.event_pump.poll_iter() {
                 match event {

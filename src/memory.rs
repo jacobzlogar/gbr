@@ -105,7 +105,7 @@ impl Memory {
         let mut mem = Self {
             block: [0u8; 65536],
             cartridge,
-            oam_accessible: false,
+            oam_accessible: true,
             vram_accessible: true,
             rom_banks: vec![],
         };
@@ -151,6 +151,9 @@ impl Memory {
         mem
     }
     pub fn read(&mut self, addr: usize) -> u8 {
+        if addr >= 0x8000 && addr <= 0x97ff {
+            // println!("accessing vram: {addr:?}");
+        }
         // oam can't be read or written to during ppu mode 2 or mode 3
         if addr >= 0xfe00 && addr <= 0xfe9f && (!self.oam_accessible || !self.vram_accessible) {
             return 0xff;
@@ -164,9 +167,11 @@ impl Memory {
 
     pub fn write(&mut self, addr: usize, value: u8) {
         if addr >= 0xfe00 && addr <= 0xfe9f && (!self.oam_accessible || !self.vram_accessible) {
+            println!("Attempting to write to hram");
             return;
         }
         if addr >= 0x8000 && addr <= 0x9fff && !self.vram_accessible {
+            println!("Attempting to write to vram");
             return;
         }
         self.block[addr] = value;

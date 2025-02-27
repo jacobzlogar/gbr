@@ -77,7 +77,7 @@ pub const INSTRUCTION_SET: [DecodeFn; 256] = [
     // row 3
     |ctx| jr_cc_n16(get_u8(&mut ctx.iter)?, Condition::NotZero, ctx.cpu),
     |ctx| ld_r16_n16(R16::HL, get_u16(&mut ctx.iter)?, ctx.cpu),
-    |ctx| ld_hli_a(ctx.cpu, ctx.memory),
+    |ctx| ld_a_hli(ctx.cpu, ctx.memory),
     |ctx| inc_r16(R16::HL, ctx.cpu),
     |ctx| inc_r8(R8::H, ctx.cpu),
     |ctx| dec_r8(R8::H, ctx.cpu),
@@ -85,7 +85,7 @@ pub const INSTRUCTION_SET: [DecodeFn; 256] = [
     |ctx| daa(ctx.cpu),
     |ctx| jr_cc_n16(get_u8(&mut ctx.iter)?, Condition::Zero, ctx.cpu),
     |ctx| add_r16_hl(R16::HL, ctx.cpu),
-    |ctx| ld_a_hli(ctx.cpu, ctx.memory),
+    |ctx| ld_hli_a(ctx.cpu, ctx.memory),
     |ctx| dec_r16(R16::DE, ctx.cpu),
     |ctx| inc_r8(R8::E, ctx.cpu),
     |ctx| dec_r8(R8::E, ctx.cpu),

@@ -13,6 +13,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let binary = std::fs::read(&path)
         .expect(&format!("Couldn't find {} at {path}", args.file));
     let mut emulator = System::new(binary)?;
-    emulator.execute();
+    emulator.run();
     Ok(())
 }

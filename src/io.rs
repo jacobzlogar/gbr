@@ -23,25 +23,41 @@ pub const WRAM_BANK_SELECT: u16 = 0xff70;
 
 #[derive(Debug)]
 pub struct LcdControl {
-    lcd_ppu_enable: bool,
-    window_tile_map: bool,
-    window_enable: bool,
-    bg_window_tile_data_area: bool,
-    bg_tile_map: bool,
-    obj_size: bool,
+    pub lcd_ppu_enable: bool,
+    pub tile_map_area: [usize; 2],
+    pub window_enable: bool,
+    pub tile_data_area: [usize; 2],
+    // pub bg_tile_map_area: [usize; 2],
+    obj_size: u8,
     obj_enable: bool,
-    bg_window_enable: bool,
+    pub bg_window_enable: bool,
+}
+
+impl std::fmt::Display for LcdControl {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // let window_tile_map = format!("window tile map: 0x{:0x} - 0x{:0x}", self.window_tile_map_area[0], self.window_tile_map_area[1]);
+        let tile_map_area = format!("tile map area: 0x{:0x} - 0x{:0x}", self.tile_map_area[0], self.tile_map_area[1]);
+        let tile_data_area = format!("tile data area: 0x{:0x} - 0x{:0x}", self.tile_data_area[0], self.tile_data_area[1]);
+        write!(f, "{}\n{}\n", tile_map_area,  tile_data_area)
+    }
 }
 
 impl From<u8> for LcdControl {
     fn from(value: u8) -> Self {
+        let tile_map_area = match (value & 0x40) >> 6 {
+            0 => [0x9800, 0x9bff],
+            _ => [0x9c00, 0x9fff]
+        };
+        let tile_data_area = match (value & 0x10) >> 4 {
+            0 => [0x8800, 0x97ff],
+            _ => [0x8000, 0x8fff]
+        };
         Self {
             lcd_ppu_enable: (value & 0x80) >> 7 == 1,
-            window_tile_map: (value & 0x40) >> 6 == 1,
+            tile_map_area,
             window_enable: (value & 0x20) >> 5 == 1,
-            bg_window_tile_data_area: (value & 0x10) >> 4 == 1,
-            bg_tile_map: (value & 0x08) >> 3 == 1,
-            obj_size: (value & 0x04) >> 2 == 1,
+            tile_data_area,
+            obj_size: (value & 0x04) >> 2,
             obj_enable: (value & 0x02) >> 1 == 1,
             bg_window_enable: (value & 0x01) == 1,
         }
