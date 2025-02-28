@@ -45,7 +45,7 @@ pub struct Ppu {
     pub frame_buffer: Vec<u8>,
     tile_map: Vec<u8>,
     // bg_tile_map: Vec<u8>,
-    tile_data: [[u8; 2048]; 2], // each tile is 16 bytes and each block is contains 128 tiles, there are 2 active blocks at a time
+    tile_data: [[u8; 2048]; 2], // each tile is 16 bytes and each block contains 128 tiles, there are 2 active blocks at a time
     pub texture_creator: TextureCreator<WindowContext>
 }
 
@@ -76,6 +76,11 @@ impl Ppu {
     pub fn render_scanline(&mut self, mem: &mut Memory, clock: &Clock) {
         let scanline = mem.read(LY);
         let lcdc = mem.lcd_control();
+        self.texture_creator.create_texture_static(
+            PixelFormat::try_from(SDL_PIXELFORMAT_RGB24).unwrap(),
+            160,
+            144
+        );
 
         match scanline {
             143 => self.mode = PpuMode::VerticalBlank,
@@ -85,17 +90,17 @@ impl Ppu {
             0..=80 => {
                 self.oam_scan(mem, scanline);
                 self.mode = PpuMode::OAMScan;
-                self.tile_data[0] = mem.block[lcdc.tile_data_area[0][0]..=lcdc.tile_data_area[0][1]];
-                    // .chunks_exact(16)
-                    // .flat_map(|tile| decode_tile(tile));
+                // self.tile_data[0] = mem.block[lcdc.tile_data_area[0][0]..=lcdc.tile_data_area[0][1]];
+                //     .chunks_exact(16)
+                //     .flat_map(|tile| decode_tile(tile));
                 // self.tile_data = mem.block[lcdc.tile_data_area[0]..=lcdc.tile_data_area[1]]
                 //     .chunks_exact(16)
                 //     .map(|tile| decode_tile(tile))
                 //     .collect::<Vec<[u8; 64]>>();
                 let bg_tile_map = mem.block[lcdc.bg_tile_map_area[0]..=lcdc.bg_tile_map_area[1]]
                     .to_vec();
-                let window_tiles = mem.block[lcdc.window_tile_map_area[0]..=lcdc.window_tile_map_area[1]]
-                    .to_vec();
+                // let window_tiles = mem.block[lcdc.window_tile_map_area[0]..=lcdc.window_tile_map_area[1]]
+                //     .to_vec();
                 self.frame_buffer = bg_tile_map.iter()
                     .map(|tile_map| {
                         if tile_map <= &127 {
@@ -113,11 +118,6 @@ impl Ppu {
                 }
                 if lcdc.bg_window_enable {
                 }
-                self.texture_creator.create_texture_static(
-                    PixelFormat::try_from(SDL_PIXELFORMAT_RGB24).unwrap(),
-                    160,
-                    144
-                );
                 // TODO: add obj penalty variable mode length algorithm
                 self.mode = PpuMode::Drawing;
                 // mem.oam_accessible = false;
