@@ -30,9 +30,9 @@ use crate::memory::registers::{LCDC, LY};
 #[derive(PartialEq, Eq)]
 pub enum PpuMode {
     HorizontalBlank, // waiting until the end of the scanline
-    VerticalBlank,   // waiting until the next frame, all vram sectitons become accessible to cpu
-    OAMScan,         // searching for OBJS which overlap this line
-    Drawing,         // sending pixels to the LCD
+    VerticalBlank, // waiting until the next frame, all vram sectitons become accessible to cpu
+    OAMScan, // searching for OBJS which overlap the current scanline
+    Drawing, // sending pixels to the LCD
 }
 pub const PALETTE: [u8; 4] = [255, 170, 85, 0];
 
@@ -42,10 +42,10 @@ pub struct Ppu {
     pub obj_penalty: usize,
     pub scanline: u16,
     pub mode: PpuMode,
-    pub frame_buffer: Vec<u16>,
+    pub frame_buffer: Vec<u8>,
     tile_map: Vec<u8>,
     // bg_tile_map: Vec<u8>,
-    tile_data: Vec<[u8; 64]>,
+    tile_data: [[u8; 2048]; 2], // each tile is 16 bytes and each block is contains 128 tiles, there are 2 active blocks at a time
     pub texture_creator: TextureCreator<WindowContext>
 }
 
@@ -55,7 +55,7 @@ impl Ppu {
         let texture_creator = canvas.texture_creator();
         Self {
             tile_map: vec![],
-            tile_data: vec![[0u8; 64]],
+            tile_data: [[0u8; 2048]; 2],
             canvas,
             event_pump,
             obj_penalty: 0,
@@ -76,11 +76,6 @@ impl Ppu {
     pub fn render_scanline(&mut self, mem: &mut Memory, clock: &Clock) {
         let scanline = mem.read(LY);
         let lcdc = mem.lcd_control();
-        let tiles = mem.block[lcdc.tile_data_area[0]..=lcdc.tile_data_area[1]]
-            .chunks_exact(16)
-            .map(|tile| decode_tile(tile))
-            .collect::<Vec<[u8; 64]>>();
-        println!("\n{:?}", tiles);
 
         match scanline {
             143 => self.mode = PpuMode::VerticalBlank,
@@ -90,14 +85,33 @@ impl Ppu {
             0..=80 => {
                 self.oam_scan(mem, scanline);
                 self.mode = PpuMode::OAMScan;
+                self.tile_data[0] = mem.block[lcdc.tile_data_area[0][0]..=lcdc.tile_data_area[0][1]];
+                    // .chunks_exact(16)
+                    // .flat_map(|tile| decode_tile(tile));
+                // self.tile_data = mem.block[lcdc.tile_data_area[0]..=lcdc.tile_data_area[1]]
+                //     .chunks_exact(16)
+                //     .map(|tile| decode_tile(tile))
+                //     .collect::<Vec<[u8; 64]>>();
+                let bg_tile_map = mem.block[lcdc.bg_tile_map_area[0]..=lcdc.bg_tile_map_area[1]]
+                    .to_vec();
+                let window_tiles = mem.block[lcdc.window_tile_map_area[0]..=lcdc.window_tile_map_area[1]]
+                    .to_vec();
+                self.frame_buffer = bg_tile_map.iter()
+                    .map(|tile_map| {
+                        if tile_map <= &127 {
+                            return mem.read(0x9000 + *tile_map as usize);
+                        } else {
+                            return mem.read(0x8800 + *tile_map as usize);
+                        }
+                    }).collect();
+                        
+                println!("\n{:?}", self.frame_buffer);
             }
             81..=252 => {
                 if lcdc.window_enable {
                     // println!("window_tile_map: {:?}", lcdc.window_tile_map_area);
                 }
                 if lcdc.bg_window_enable {
-                    self.tile_map = mem.block[lcdc.tile_map_area[0]..=lcdc.tile_map_area[1]]
-                        .to_vec();
                 }
                 self.texture_creator.create_texture_static(
                     PixelFormat::try_from(SDL_PIXELFORMAT_RGB24).unwrap(),

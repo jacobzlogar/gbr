@@ -264,7 +264,7 @@ pub fn ld_hld_a(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instructio
 pub fn ld_hli_a(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instruction> {
     let hl = cpu.registers.hl;
     let byte = mem.read(hl as usize);
-    // println!("loading 0x{byte:0x} into 0x{hl:0x}");
+    println!("loading 0x{byte:0x} into 0x{hl:0x}");
     cpu.registers.set_r8(R8::A, byte);
     cpu.registers.set_r16(R16::HL, hl + 1);
     cpu.registers.pc += 1;

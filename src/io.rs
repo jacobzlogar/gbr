@@ -24,9 +24,10 @@ pub const WRAM_BANK_SELECT: u16 = 0xff70;
 #[derive(Debug)]
 pub struct LcdControl {
     pub lcd_ppu_enable: bool,
-    pub tile_map_area: [usize; 2],
+    pub window_tile_map_area: [usize; 2],
+    pub bg_tile_map_area: [usize; 2],
     pub window_enable: bool,
-    pub tile_data_area: [usize; 2],
+    pub tile_data_area: [[usize; 2]; 2],
     // pub bg_tile_map_area: [usize; 2],
     obj_size: u8,
     obj_enable: bool,
@@ -35,28 +36,34 @@ pub struct LcdControl {
 
 impl std::fmt::Display for LcdControl {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // let window_tile_map = format!("window tile map: 0x{:0x} - 0x{:0x}", self.window_tile_map_area[0], self.window_tile_map_area[1]);
-        let tile_map_area = format!("tile map area: 0x{:0x} - 0x{:0x}", self.tile_map_area[0], self.tile_map_area[1]);
-        let tile_data_area = format!("tile data area: 0x{:0x} - 0x{:0x}", self.tile_data_area[0], self.tile_data_area[1]);
-        write!(f, "{}\n{}\n", tile_map_area,  tile_data_area)
+        let window_tile_map_area = format!("window tile map area: 0x{:0x} - 0x{:0x}", self.window_tile_map_area[0], self.window_tile_map_area[1]);
+        let bg_tile_map_area = format!("bg tile map area: 0x{:0x} - 0x{:0x}", self.bg_tile_map_area[0], self.bg_tile_map_area[1]);
+        // let tile_data_area = format!("tile data area block0 0x{:0x}-0x{:0x} -> block 1 0x{:0x}", self.tile_data_area[0], self.tile_data_area[1]);
+        // write!(f, "{window_tile_map_area}\n{bg_tile_map_area}\n{tile_data_area}\n")
+        write!(f, "")
     }
 }
 
 impl From<u8> for LcdControl {
     fn from(value: u8) -> Self {
-        let tile_map_area = match (value & 0x40) >> 6 {
+        let window_tile_map_area = match (value & 0x40) >> 6 {
             0 => [0x9800, 0x9bff],
             _ => [0x9c00, 0x9fff]
         };
         let tile_data_area = match (value & 0x10) >> 4 {
-            0 => [0x8800, 0x97ff],
-            _ => [0x8000, 0x8fff]
+            0 => [[0x8800, 0x8fff], [0x9000, 0x97ff]],
+            _ => [[0x8000, 0x87ff], [0x8800, 0x8fff]]
+        };
+        let bg_tile_map_area = match (value & 0x08) >> 3 {
+            0 => [0x9800, 0x9bff],
+            _ => [0x9c00, 0x9fff]
         };
         Self {
             lcd_ppu_enable: (value & 0x80) >> 7 == 1,
-            tile_map_area,
+            window_tile_map_area,
             window_enable: (value & 0x20) >> 5 == 1,
             tile_data_area,
+            bg_tile_map_area,
             obj_size: (value & 0x04) >> 2,
             obj_enable: (value & 0x02) >> 1 == 1,
             bg_window_enable: (value & 0x01) == 1,
