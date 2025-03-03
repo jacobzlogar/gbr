@@ -24,7 +24,6 @@ impl System {
     pub fn new(game: Vec<u8>) -> Result<Self, SystemError> {
         let cartridge = Cartridge::new(game.clone()).map_err(|_| SystemError::CartridgeError)?;
         let mut mem = Memory::new(cartridge);
-        let lcdc = mem.lcd_control();
         Ok(Self {
             cpu: Cpu::default(),
             apu: Apu::default(),
@@ -57,7 +56,9 @@ impl System {
     pub fn run(&mut self) {
         self.ppu.canvas.set_draw_color(Color::WHITE);
         self.ppu.canvas.clear();
+        self.ppu.canvas.present();
         'running: loop {
+            let lcdc = self.mem.lcd_control();
             // execute instructions
             self.clock.m_cycles += self.cpu.execute(&mut self.mem).unwrap() as usize;
             // advance the clock
@@ -69,10 +70,9 @@ impl System {
                 self.handle_interrupt();
             }
             // scanline 144 is the beginning of vblank
-            if self.mem.read(LY) <= 143 {
-                self.ppu.render_scanline(&mut self.mem, &self.clock);
+            if self.mem.read(LY) <= 143 && lcdc.lcd_ppu_enable {
+                self.ppu.render_scanline(&mut self.mem, &self.clock, &lcdc);
             }
-            self.ppu.canvas.present();
             for event in self.ppu.event_pump.poll_iter() {
                 match event {
                     Event::Quit { .. }

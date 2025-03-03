@@ -38,9 +38,8 @@ impl std::fmt::Display for LcdControl {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let window_tile_map_area = format!("window tile map area: 0x{:0x} - 0x{:0x}", self.window_tile_map_area[0], self.window_tile_map_area[1]);
         let bg_tile_map_area = format!("bg tile map area: 0x{:0x} - 0x{:0x}", self.bg_tile_map_area[0], self.bg_tile_map_area[1]);
-        // let tile_data_area = format!("tile data area block0 0x{:0x}-0x{:0x} -> block 1 0x{:0x}", self.tile_data_area[0], self.tile_data_area[1]);
-        // write!(f, "{window_tile_map_area}\n{bg_tile_map_area}\n{tile_data_area}\n")
-        write!(f, "")
+        let tile_data_area = format!("tile data area block_0: 0x{:0x}-{:0x} - block_1: 0x{:0x}-{:0x}", self.tile_data_area[0][0], self.tile_data_area[0][1], self.tile_data_area[1][0], self.tile_data_area[1][1]);
+        write!(f, "\n{window_tile_map_area}\n{bg_tile_map_area}\n{tile_data_area}\nlcd & ppu enabled: {}\nbg window enabled: {}", self.lcd_ppu_enable, self.bg_window_enable)
     }
 }
 

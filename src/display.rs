@@ -1,8 +1,10 @@
 extern crate sdl3;
 
 use sdl3::pixels::{Color, PixelFormat};
+use sdl3::rect::Rect;
 use sdl3::render::{Canvas, FRect, Texture, TextureAccess, TextureCreator};
 use sdl3::sys::pixels::{SDL_PixelFormat, SDL_PixelFormatDetails, SDL_PIXELFORMAT_ABGR32, SDL_PIXELFORMAT_RGB24};
+use sdl3::sys::rect::SDL_GetRectAndLineIntersectionFloat;
 use sdl3::sys::stdinc::SDL_sinf;
 use sdl3::video::{Window, WindowContext};
 use sdl3::{Error, EventPump};
@@ -43,9 +45,6 @@ pub struct Ppu {
     pub scanline: u16,
     pub mode: PpuMode,
     pub frame_buffer: Vec<u8>,
-    tile_map: Vec<u8>,
-    // bg_tile_map: Vec<u8>,
-    tile_data: [[u8; 2048]; 2], // each tile is 16 bytes and each block contains 128 tiles, there are 2 active blocks at a time
     pub texture_creator: TextureCreator<WindowContext>
 }
 
@@ -54,8 +53,6 @@ impl Ppu {
         let (canvas, event_pump) = setup_ctx().unwrap();
         let texture_creator = canvas.texture_creator();
         Self {
-            tile_map: vec![],
-            tile_data: [[0u8; 2048]; 2],
             canvas,
             event_pump,
             obj_penalty: 0,
@@ -73,55 +70,52 @@ impl Ppu {
         }
     }
 
-    pub fn render_scanline(&mut self, mem: &mut Memory, clock: &Clock) {
+    pub fn render_scanline(&mut self, mem: &mut Memory, clock: &Clock, lcdc:  &LcdControl) {
         let scanline = mem.read(LY);
-        let lcdc = mem.lcd_control();
-        self.texture_creator.create_texture_static(
+        let mut texture = self.texture_creator.create_texture_streaming(
             PixelFormat::try_from(SDL_PIXELFORMAT_RGB24).unwrap(),
-            160,
-            144
-        );
-
+            256,
+            256
+        ).unwrap();
+        let window_tile_map = &mem.block[lcdc.window_tile_map_area[0]..=lcdc.window_tile_map_area[1]];
+        let bg_tile_map = &mem.block[lcdc.bg_tile_map_area[0]..=lcdc.bg_tile_map_area[1]];
+        let mut tile_block_0: [[u8; 64]; 128] = [[0u8; 64]; 128];
+        let mut tile_block_1: [[u8; 64]; 128] = [[0u8; 64]; 128];
+        &mem.block[lcdc.tile_data_area[0][0]..=lcdc.tile_data_area[0][1]].chunks_exact(16).enumerate().for_each(|(i, tile)| {
+            tile_block_0[i] = decode_tile(tile);
+        });
+        &mem.block[lcdc.tile_data_area[1][0]..=lcdc.tile_data_area[1][1]].chunks_exact(16).enumerate().for_each(|(i, tile)| {
+            tile_block_1[i] = decode_tile(tile);
+        });
+        texture.with_lock(None, |buffer: &mut [u8], pitch: usize| {
+            for y in 0..256 {
+                for x in 0..256 {
+                    let offset = y * pitch + x * 3;
+                    buffer[offset] = 49;
+                }
+            }
+        }).unwrap();
+        self.canvas.copy(&texture, None, Some(FRect::new(0.0, 0.0, 256.0, 256.0))).unwrap();
         match scanline {
             143 => self.mode = PpuMode::VerticalBlank,
             _ => (),
         };
         match clock.dots {
             0..=80 => {
-                self.oam_scan(mem, scanline);
+                // self.oam_scan(mem, scanline);
                 self.mode = PpuMode::OAMScan;
-                // self.tile_data[0] = mem.block[lcdc.tile_data_area[0][0]..=lcdc.tile_data_area[0][1]];
-                //     .chunks_exact(16)
-                //     .flat_map(|tile| decode_tile(tile));
-                // self.tile_data = mem.block[lcdc.tile_data_area[0]..=lcdc.tile_data_area[1]]
-                //     .chunks_exact(16)
-                //     .map(|tile| decode_tile(tile))
-                //     .collect::<Vec<[u8; 64]>>();
-                let bg_tile_map = mem.block[lcdc.bg_tile_map_area[0]..=lcdc.bg_tile_map_area[1]]
-                    .to_vec();
-                // let window_tiles = mem.block[lcdc.window_tile_map_area[0]..=lcdc.window_tile_map_area[1]]
-                //     .to_vec();
-                self.frame_buffer = bg_tile_map.iter()
-                    .map(|tile_map| {
-                        if tile_map <= &127 {
-                            return mem.read(0x9000 + *tile_map as usize);
-                        } else {
-                            return mem.read(0x8800 + *tile_map as usize);
-                        }
-                    }).collect();
-                        
-                println!("\n{:?}", self.frame_buffer);
             }
             81..=252 => {
+                self.mode = PpuMode::Drawing;
+                mem.oam_accessible = false;
+                mem.vram_accessible = false;
                 if lcdc.window_enable {
                     // println!("window_tile_map: {:?}", lcdc.window_tile_map_area);
                 }
                 if lcdc.bg_window_enable {
                 }
                 // TODO: add obj penalty variable mode length algorithm
-                self.mode = PpuMode::Drawing;
-                // mem.oam_accessible = false;
-                // mem.vram_accessible = false;
+                self.canvas.present();
             }
             _ => {
                 mem.oam_accessible = true;
@@ -179,16 +173,24 @@ pub fn decode_tile(tile: &[u8]) -> [u8; 64] {
 }
 
 pub mod tests {
-    use crate::memory::Memory;
+    use crate::{dump_tiles, memory::Memory};
     use crate::cartridge::Cartridge;
 
-    use super::{decode_tile, TILES};
+    use super::{decode_tile, TILES, TILEMAP};
     #[test]
     fn test_decode_tile() {
         let decoded = TILES.chunks_exact(16)
             .map(|tile| decode_tile(tile))
-            .collect::<Vec<[u8; 64]>>();
-        println!("{decoded:?}");
+            .collect::<Vec<_>>();
+        println!("{:?}", decoded);
+        // let image: Vec<u8> = TILEMAP.iter().flat_map(|tilemap| decoded[*tilemap as usize]).collect();
+        // let image = vec![];
+        // for y in 0..144 {
+        //     for x in 0..160 {
+
+        //     }
+        // }
+        dump_tiles(&decoded[20], 8, 8);
     }
 }
 pub const TILES: [u8; 1120] = [
@@ -262,4 +264,25 @@ pub const TILES: [u8; 1120] = [
     0x54, 0xff, 0xaa, 0xff, 0x54, 0xff, 0xaa, 0xff, 0x54, 0xff, 0xaa, 0xff, 0x54, 0xff, 0x00, 0xff,
     0x15, 0xff, 0x2a, 0xff, 0x15, 0xff, 0x0a, 0xff, 0x15, 0xff, 0x0a, 0xff, 0x01, 0xff, 0x00, 0xff,
     0x01, 0xff, 0x80, 0xff, 0x01, 0xff, 0x80, 0xff, 0x01, 0xff, 0x80, 0xff, 0x01, 0xff, 0x00, 0xff,
+];
+
+pub const TILEMAP: [u8; 576] = [
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  0,0,0,0,0,0,0,0,0,0,0,0,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  0,0,0,0,0,0,0,0,0,0,0,0,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  0,0,0,0,0,0,0,0,0,0,0,0,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  0,0,0,0,0,0,0,0,0,0,0,0,
+    0x00, 0x00, 0x01, 0x02, 0x03, 0x01, 0x04, 0x03, 0x01, 0x05, 0x00, 0x01, 0x05, 0x00, 0x06, 0x04, 0x07, 0x00, 0x00, 0x00,  0,0,0,0,0,0,0,0,0,0,0,0,
+    0x00, 0x00, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0b, 0x0e, 0x0f, 0x08, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x00, 0x00,  0,0,0,0,0,0,0,0,0,0,0,0,
+    0x00, 0x00, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x0f, 0x14, 0x1b, 0x0f, 0x14, 0x1c, 0x16, 0x1d, 0x00, 0x00,  0,0,0,0,0,0,0,0,0,0,0,0,
+    0x00, 0x00, 0x1e, 0x1f, 0x20, 0x21, 0x22, 0x23, 0x24, 0x22, 0x25, 0x1e, 0x22, 0x25, 0x26, 0x22, 0x27, 0x1d, 0x00, 0x00,  0,0,0,0,0,0,0,0,0,0,0,0,
+    0x00, 0x00, 0x01, 0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2b, 0x2e, 0x2d, 0x2f, 0x30, 0x2d, 0x31, 0x32, 0x33, 0x00, 0x00,  0,0,0,0,0,0,0,0,0,0,0,0,
+    0x00, 0x00, 0x08, 0x34, 0x0a, 0x0b, 0x11, 0x0a, 0x0b, 0x35, 0x36, 0x0b, 0x0e, 0x0f, 0x08, 0x37, 0x0a, 0x38, 0x00, 0x00,  0,0,0,0,0,0,0,0,0,0,0,0,
+    0x00, 0x00, 0x14, 0x39, 0x16, 0x17, 0x1c, 0x16, 0x17, 0x3a, 0x3b, 0x17, 0x1b, 0x0f, 0x14, 0x3c, 0x16, 0x1d, 0x00, 0x00,  0,0,0,0,0,0,0,0,0,0,0,0,
+    0x00, 0x00, 0x1e, 0x3d, 0x3e, 0x3f, 0x22, 0x27, 0x21, 0x1f, 0x20, 0x21, 0x22, 0x25, 0x1e, 0x22, 0x40, 0x1d, 0x00, 0x00,  0,0,0,0,0,0,0,0,0,0,0,0,
+    0x00, 0x00, 0x00, 0x41, 0x42, 0x43, 0x44, 0x30, 0x33, 0x41, 0x45, 0x43, 0x41, 0x30, 0x43, 0x41, 0x30, 0x33, 0x00, 0x00,  0,0,0,0,0,0,0,0,0,0,0,0,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  0,0,0,0,0,0,0,0,0,0,0,0,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  0,0,0,0,0,0,0,0,0,0,0,0,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  0,0,0,0,0,0,0,0,0,0,0,0,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  0,0,0,0,0,0,0,0,0,0,0,0,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  0,0,0,0,0,0,0,0,0,0,0,0
 ];

@@ -219,7 +219,9 @@ pub fn ld_a_hli(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instructio
     let hl = cpu.registers.hl;
     let a = cpu.registers.a;
     let lcdc = mem.lcd_control();
-    println!("\nloading register a {a:0x} into 0x{hl:0x}\n{lcdc}");
+    if a > 0 {
+        println!("\nloading value in r8:a 0x{a:0x} into 0x{hl:0x}\n{lcdc}");
+    }
     mem.write(hl as usize, a);
     cpu.registers.set_r16(R16::HL, hl + 1);
     cpu.registers.pc += 1;

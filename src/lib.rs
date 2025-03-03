@@ -1,4 +1,6 @@
 #![allow(warnings)]
+use std::io::Write;
+
 use crate::errors::DecodeError;
 use cpu::Cpu;
 use instructions::{Instruction, InstructionResult};
@@ -138,4 +140,19 @@ pub fn get_u16(iter: &mut std::slice::Iter<u8>) -> InstructionResult<u16> {
         *iter.next().ok_or(DecodeError::MissingDataByte)?,
     ]);
     Ok(n16)
+}
+
+/// Helper that creates .ppm images to help debug tile/tile maps
+pub fn dump_tiles(tiles: &[u8], width: u16, height: u16) {
+    let mut file = std::fs::File::create(format!("{}/test.ppm", env!("CARGO_MANIFEST_DIR"))).unwrap();
+    let header = format!("P3\n{} {}\n255\n", &width, &height);
+    let header = header.as_bytes();
+    file.write(header);
+    for i in 0..height {
+        for j in 0..width {
+            let pixel = tiles[(i * j) as usize];
+            let pixel = format!("{} {} {}\n", pixel, pixel, pixel);
+            file.write(pixel.as_bytes());
+        }
+    }
 }
