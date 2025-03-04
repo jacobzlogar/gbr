@@ -28,18 +28,15 @@ TODO:
   - e8 instructions (double check this)
   - [ ] halt instruction
   - [ ] DAA 
-
 - Timing:
   - I think what i have is mostly working, hard to tell without a full test
   Some context:
   - each scanline runs for 70224 dots
   - 59.7 frames per second
-    59.7 * 70224 = 4192372 (which is the clock speed of the console)
+  - 59.7 * 70224 = 4192372 (which is the clock speed of the console)
 - Interrupts:
   - [ ]
 - Rendering:
   - [ ]
 - Memory Mapping
-  - [ ] properly map the things
-
-- [ ] how do tile maps work??????????????????????
+  - [ ] 
