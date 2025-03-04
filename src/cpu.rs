@@ -25,7 +25,7 @@ pub struct Registers {
     pub de: u16,
     pub hl: u16,
     pub sp: u16, // stack pointer
-    pub pc: u16, // programer counter/pointer
+    pub pc: u16, // program counter
     pub flags: Flags,
 }
 
@@ -202,8 +202,7 @@ impl Cpu {
             match instruction.mnemonic {
                 Mnemonic::NOP | Mnemonic::RST => (),
                 Mnemonic::RETI | Mnemonic::EI => self.ime = true,
-                _ => ()
-                // _ => println!("{instruction:?}"),
+                _ => println!("{instruction:?}"),
             };
             return Ok(instruction.cycles);
         }

@@ -13,6 +13,7 @@ use crate::clock::Clock;
 use crate::io::LcdControl;
 use crate::memory::Memory;
 use crate::memory::registers::{LCDC, LY};
+
 /// ```ignore
 /// These modes represent the modes the PPU cycles between during a frame
 ///
@@ -88,10 +89,35 @@ impl Ppu {
             tile_block_1[i] = decode_tile(tile);
         });
         texture.with_lock(None, |buffer: &mut [u8], pitch: usize| {
-            for y in 0..256 {
-                for x in 0..256 {
-                    let offset = y * pitch + x * 3;
-                    buffer[offset] = 49;
+            // tile maps are 32x32
+            for y in 0..32 {
+                for x in 0..32 {
+                    let tile_map = window_tile_map[x * y];
+                    // tiles are 8x8
+                    for i in 0..8 {
+                        for j in 0..8 {
+                            let offset = (y * 8 + j) * pitch + (x * 8 + i) * 3;
+                            let tile_index: usize = i * j;
+                            let pixel = tile_block_1[tile_map as usize][tile_index];
+                            buffer[offset] = pixel;
+                            buffer[offset+1] = pixel;
+                            buffer[offset+2] = pixel;
+                            // let offset = (y * 8 + j) * pitch + (x * 8 + i) * 3;
+                            // let tile_index: usize = i * j;
+                            // if tile_map <= 127 {
+                            //     let pixel = tile_block_1[tile_map as usize][tile_index];
+                            //     buffer[offset] = pixel;
+                            //     buffer[offset+1] = pixel;
+                            //     buffer[offset+2] = pixel;
+                            // } else {
+                            //     let pixel = tile_block_0[tile_map as usize][tile_index];
+                            //     buffer[offset] = pixel;
+                            //     buffer[offset+1] = pixel;
+                            //     buffer[offset+2] = pixel;
+                            // }
+                        }
+                    }
+                    // println!("{:?}", bg_tile_map.len());
                 }
             }
         }).unwrap();
@@ -129,7 +155,7 @@ pub fn setup_ctx() -> Result<(Canvas<Window>, EventPump), Error> {
     let sdl_context = sdl3::init()?;
     let video_subsystem = sdl_context.video()?;
     let window = video_subsystem
-        .window("test", 640, 480)
+        .window("test", 256, 256)
         .position_centered()
         .build()
         .unwrap();

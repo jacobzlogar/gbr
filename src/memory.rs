@@ -165,15 +165,25 @@ impl Memory {
         self.block[addr]
     }
 
+    // TODO: wire up MBC
     pub fn write(&mut self, addr: usize, value: u8) {
-        // if addr >= 0xfe00 && addr <= 0xfe9f && (!self.oam_accessible || !self.vram_accessible) {
-        //     println!("Attempting to write to hram");
-        //     return;
-        // }
-        // if addr >= 0x8000 && addr <= 0x9fff && !self.vram_accessible {
-        //     println!("Attempting to write to vram");
-        //     return;
-        // }
+        if addr >= 0x2000 && addr <= 0x3fff {
+            println!("switching rom banks");
+        }
+        if addr >= 0x4000 && addr <= 0x5fff {
+            println!("switching rom banks");
+        }
+        if addr >= 0x6000 && addr <= 0x7fff {
+            println!("banking mode select");
+        }
+        if addr >= 0xfe00 && addr <= 0xfe9f && (!self.oam_accessible || !self.vram_accessible) {
+            println!("Attempting to write to hram");
+            return;
+        }
+        if addr >= 0x8000 && addr <= 0x9fff {
+            println!("Attempting to write to vram");
+            return;
+        }
         self.block[addr] = value;
     }
 

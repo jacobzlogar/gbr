@@ -20,7 +20,10 @@
 - http://gbdev.gg8.se/wiki/articles/The_Cartridge_Header
 
 TODO:
+- Testing:
+  - [ ] run one of the instruction testing roms against my decoder
 - Decoding:
+  - [ ] add tests for jumps, i think I might have a bug here
   - [ ] stack manipulation instructions
   - e8 instructions (double check this)
   - [ ] halt instruction
