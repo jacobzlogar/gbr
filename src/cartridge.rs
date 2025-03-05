@@ -30,8 +30,8 @@ impl Cartridge {
         let title = String::from_utf8_lossy(&rom[TITLE_START..TITLE_END]).to_string();
         let logo = &rom[LOGO_START..LOGO_END].to_vec();
         let cgb_flag = match &rom[CGB_FLAG] {
-            0x80|0xc0 => true,
-            _ => false
+            0x80 | 0xc0 => true,
+            _ => false,
         };
         let rom_size = get_rom_size(rom[ROM_SIZE])?;
         let ram_size = RamSize::try_from(rom[RAM_SIZE])?;

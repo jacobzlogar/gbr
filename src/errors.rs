@@ -35,7 +35,7 @@ impl std::fmt::Display for JoypadError {
 pub enum SystemError {
     InterruptHandlerError(Interrupt, u16),
     TimerControlError,
-    CartridgeError
+    CartridgeError,
 }
 
 impl std::error::Error for SystemError {}
@@ -43,12 +43,12 @@ impl std::error::Error for SystemError {}
 impl std::fmt::Display for SystemError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::InterruptHandlerError(interrupt, handler)  => {
+            Self::InterruptHandlerError(interrupt, handler) => {
                 write!(f, "Int handler for {interrupt:?} at 0x{handler:0x} failed")
-            },
+            }
             Self::TimerControlError => {
                 write!(f, "Failed to read cartridge")
-            },
+            }
             Self::CartridgeError => {
                 write!(f, "Failed to read cartridge")
             }

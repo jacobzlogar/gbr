@@ -3,6 +3,7 @@ use registers::*;
 
 use crate::{
     cartridge::{Cartridge, CartridgeType},
+    decode_tile,
     errors::SystemError,
     io::{LcdControl, LcdStatus, TimerControl},
 };
@@ -178,11 +179,11 @@ impl Memory {
         }
         if addr >= 0xfe00 && addr <= 0xfe9f && (!self.oam_accessible || !self.vram_accessible) {
             println!("Attempting to write to hram");
-            return;
+            // return;
         }
         if addr >= 0x8000 && addr <= 0x9fff {
             println!("Attempting to write to vram");
-            return;
+            // return;
         }
         self.block[addr] = value;
     }
@@ -194,6 +195,34 @@ impl Memory {
         } else {
             self.write(LY, ly + 1);
         }
+    }
+
+    pub fn get_tile_map(&mut self, tile_map_area: [usize; 2]) -> [u8; 1024] {
+        let mut tile_map = [0u8; 1024];
+        let slice = &self.block[tile_map_area[0]..=tile_map_area[1]];
+        tile_map.copy_from_slice(slice);
+        tile_map
+    }
+
+    pub fn get_tile_data(
+        &mut self,
+        tile_data_area: [[usize; 2]; 2],
+    ) -> ([[u8; 64]; 128], [[u8; 64]; 128]) {
+        let mut tile_block_0 = [[0u8; 64]; 128];
+        for (tile, chunk) in tile_block_0
+            .iter_mut()
+            .zip(self.block[tile_data_area[0][0]..=tile_data_area[0][1]].chunks_exact(16))
+        {
+            *tile = decode_tile(chunk);
+        }
+        let mut tile_block_1 = [[0u8; 64]; 128];
+        for (tile, chunk) in tile_block_1
+            .iter_mut()
+            .zip(self.block[tile_data_area[1][0]..=tile_data_area[1][1]].chunks_exact(16))
+        {
+            *tile = decode_tile(chunk);
+        }
+        (tile_block_0, tile_block_1)
     }
 
     pub fn lcd_status(&self) -> LcdStatus {
@@ -211,17 +240,17 @@ impl Memory {
     pub fn rom(&self) -> &[u8] {
         &self.block[ROM_BANK_0_START..ROM_BANK_1_END]
     }
-    
+
     pub fn setup_mbc(&mut self) {
-        let chunks: Vec<[u8; 16383]> = self.cartridge.rom
+        let chunks: Vec<[u8; 16383]> = self
+            .cartridge
+            .rom
             .chunks_exact(16383)
             .map(|chunk| <[u8; 16383]>::try_from(chunk).unwrap())
             .collect();
         self.rom_banks = chunks;
-        self.block[ROM_BANK_0_START..ROM_BANK_0_END]
-            .copy_from_slice(&self.rom_banks[0]);
-        self.block[ROM_BANK_1_START..ROM_BANK_1_END]
-            .copy_from_slice(&self.rom_banks[1]);
+        self.block[ROM_BANK_0_START..ROM_BANK_0_END].copy_from_slice(&self.rom_banks[0]);
+        self.block[ROM_BANK_1_START..ROM_BANK_1_END].copy_from_slice(&self.rom_banks[1]);
     }
 
     pub fn inc_tima(&mut self) {

@@ -30,6 +30,7 @@ pub fn ld_r8_r8(
 /// LD r8, n8
 /// Copy the value n8 into register r8.
 pub fn ld_r8_n8(r8: R8, n8: u8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
+    // println!("{n8} {r8:?}");
     cpu.registers.set_r8(r8, n8);
     cpu.registers.pc += 2;
     Ok(Instruction {
@@ -134,16 +135,14 @@ pub fn ld_a_immed_n16(n16: u16, cpu: &mut Cpu, mem: &mut Memory) -> InstructionR
 
 /// LDH A, [n16]
 /// Copy the byte at address n16 into register A, provided the address is between $FF00 and $FFFF.
-pub fn ldh_a_immed_n16(
-    n16: u16,
-    cpu: &mut Cpu,
-    mem: &mut Memory,
-) -> InstructionResult<Instruction> {
-    let byte = mem.read(n16 as usize);
-    if (0xff00..=0xfff).contains(&n16) {
-        cpu.registers.set_r8(R8::A, byte);
-        cpu.registers.a = byte;
-    }
+pub fn ldh_a_immed_n16(a8: u8, cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instruction> {
+    let b: usize = 0xff00 + a8 as usize;
+    let byte = mem.read(b as usize);
+    // if (0xff00..=0xffff).contains(&n16) {
+    //     println!("ldh_a_immed_n16: {n16}");
+    cpu.registers.set_r8(R8::A, byte);
+    // cpu.registers.a = byte;
+    // }
     cpu.registers.pc += 2;
     Ok(Instruction {
         mnemonic: Mnemonic::LDH,
@@ -154,15 +153,14 @@ pub fn ldh_a_immed_n16(
 
 /// LDH [n16], A
 /// Copy the value in register A into the byte at address n16, provided the address is between $FF00 and $FFFF.
-pub fn ldh_immed_n16_a(
-    n16: u16,
-    cpu: &mut Cpu,
-    mem: &mut Memory,
-) -> InstructionResult<Instruction> {
+pub fn ldh_immed_n16_a(a8: u8, cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instruction> {
+    // println!("ldh [n16], a: {a8}");
     let a = cpu.registers.a;
-    if (0xff00..=0xfff).contains(&n16) {
-        mem.write(n16 as usize, a);
-    }
+    let b: usize = 0xff00 + a8 as usize;
+    mem.write(b, a);
+    // if (0xff00..0xffff).contains(&n16) {
+    //     mem.write(n16 as usize, a);
+    // }
     cpu.registers.pc += 2;
     Ok(Instruction {
         mnemonic: Mnemonic::LDH,
@@ -177,6 +175,7 @@ pub fn ldh_a_c(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instruction
     let c = cpu.registers.c;
     let byte = mem.read(0xff00 + c as usize);
     cpu.registers.set_r8(R8::A, byte);
+    // println!("ldh a, [c]: {byte}");
     cpu.registers.pc += 1;
     Ok(Instruction {
         mnemonic: Mnemonic::LDH,
@@ -191,6 +190,7 @@ pub fn ldh_c_a(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instruction
     let a = cpu.registers.a;
     let c = cpu.registers.c;
     mem.write(0xff00 + c as usize, a);
+    // println!("ldh [c], a: {c}");
     cpu.registers.pc += 1;
     Ok(Instruction {
         mnemonic: Mnemonic::LDH,
@@ -219,9 +219,6 @@ pub fn ld_a_hli(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instructio
     let hl = cpu.registers.hl;
     let a = cpu.registers.a;
     let lcdc = mem.lcd_control();
-    if a > 0 {
-        println!("\nloading value in r8:a 0x{a:0x} into 0x{hl:0x}\n{lcdc}");
-    }
     mem.write(hl as usize, a);
     cpu.registers.set_r16(R16::HL, hl + 1);
     cpu.registers.pc += 1;
@@ -253,6 +250,7 @@ pub fn ld_hld_a(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instructio
     let byte = mem.read(hl as usize);
     cpu.registers.set_r8(R8::A, byte);
     cpu.registers.set_r16(R16::HL, hl - 1);
+    // println!("{} {byte} {}", cpu.registers.hl, cpu.registers.a);
     cpu.registers.pc += 1;
     Ok(Instruction {
         mnemonic: Mnemonic::LD,
@@ -266,7 +264,7 @@ pub fn ld_hld_a(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instructio
 pub fn ld_hli_a(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instruction> {
     let hl = cpu.registers.hl;
     let byte = mem.read(hl as usize);
-    println!("loading 0x{byte:0x} into 0x{hl:0x}");
+    // println!("loading 0x{byte:0x} into 0x{hl:0x}");
     cpu.registers.set_r8(R8::A, byte);
     cpu.registers.set_r16(R16::HL, hl + 1);
     cpu.registers.pc += 1;

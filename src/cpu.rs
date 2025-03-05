@@ -199,10 +199,12 @@ impl Cpu {
             memory,
         };
         if let Ok(instruction) = INSTRUCTION_SET[opcode_byte as usize](&mut ctx) {
+            // println!("0x{opcode_byte:0x}");
             match instruction.mnemonic {
                 Mnemonic::NOP | Mnemonic::RST => (),
                 Mnemonic::RETI | Mnemonic::EI => self.ime = true,
-                _ => println!("{instruction:?}"),
+                _ => (),
+                // _ => println!("{instruction:?}"),
             };
             return Ok(instruction.cycles);
         }

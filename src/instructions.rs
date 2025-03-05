@@ -307,7 +307,7 @@ pub const INSTRUCTION_SET: [DecodeFn; 256] = [
     |ctx| sbc_a_n8(get_u8(&mut ctx.iter)?, ctx.cpu),
     |ctx| rst(0x18, ctx.cpu, ctx.memory),
     // row 15
-    |ctx| ldh_a_immed_n16(get_u16(&mut ctx.iter)?, ctx.cpu, ctx.memory),
+    |ctx| ldh_a_immed_n16(get_u8(&mut ctx.iter)?, ctx.cpu, ctx.memory),
     |ctx| pop_r16(R16::DE, ctx.cpu, ctx.memory),
     |ctx| ldh_a_c(ctx.cpu, ctx.memory),
     |_| Err(DecodeError::InvalidOpcodeByte(0xe3)),
@@ -324,7 +324,7 @@ pub const INSTRUCTION_SET: [DecodeFn; 256] = [
     |ctx| xor_a_n8(get_u8(&mut ctx.iter)?, ctx.cpu),
     |ctx| rst(0x28, ctx.cpu, ctx.memory),
     // row 16
-    |ctx| ldh_immed_n16_a(get_u16(&mut ctx.iter)?, ctx.cpu, ctx.memory),
+    |ctx| ldh_immed_n16_a(get_u8(&mut ctx.iter)?, ctx.cpu, ctx.memory),
     |ctx| pop_af(ctx.cpu, ctx.memory),
     |ctx| ldh_c_a(ctx.cpu, ctx.memory),
     |ctx| di(ctx.cpu),

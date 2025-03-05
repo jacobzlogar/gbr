@@ -102,9 +102,9 @@ pub fn jr_n16(e8: u8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
 /// JR cc,n16
 /// Relative Jump to address n16 if condition cc is met.
 pub fn jr_cc_n16(e8: u8, condition: Condition, cpu: &mut Cpu) -> InstructionResult<Instruction> {
-    println!("{condition:?} {cpu:?}");
     if cpu.cc(condition) {
         let offset = e8 as i8;
+        // println!("{condition:?} {e8} {:?} {offset} {}", cpu, cpu.registers.pc.wrapping_add_signed(offset as i16));
         cpu.registers
             .set_r16(R16::PC, cpu.registers.pc.wrapping_add(offset as u16));
         return Ok(Instruction {

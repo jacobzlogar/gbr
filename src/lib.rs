@@ -142,9 +142,10 @@ pub fn get_u16(iter: &mut std::slice::Iter<u8>) -> InstructionResult<u16> {
     Ok(n16)
 }
 
-/// Helper that creates .ppm images to help debug tile/tile maps
+/// Helper that creates .ppm images to debug tile rendering
 pub fn dump_tiles(tiles: &[u8], width: u16, height: u16) {
-    let mut file = std::fs::File::create(format!("{}/test.ppm", env!("CARGO_MANIFEST_DIR"))).unwrap();
+    let mut file =
+        std::fs::File::create(format!("{}/test.ppm", env!("CARGO_MANIFEST_DIR"))).unwrap();
     let header = format!("P3\n{} {}\n255\n", &width, &height);
     let header = header.as_bytes();
     file.write(header);
@@ -155,4 +156,27 @@ pub fn dump_tiles(tiles: &[u8], width: u16, height: u16) {
             file.write(pixel.as_bytes());
         }
     }
+}
+
+pub const PALETTE: [u8; 4] = [255, 170, 85, 0];
+
+/// Each tile is 16 bytes, after decoding each tile contains 8x8 pixels and has a color depth of 2 bits per pixel
+/// A line is made up of 2 tiles where the even indices specify the LSB of the color and the odd the MSB
+/// e.g: given 00111100 01111110 the first byte would be 0x0 and the second byte would be 0x2
+pub fn decode_tile(tile: &[u8]) -> [u8; 64] {
+    let mut output: [u8; 64] = [0; 64];
+    let low: [u8; 8] = [
+        tile[0], tile[2], tile[4], tile[6], tile[8], tile[10], tile[12], tile[14],
+    ];
+    let high: [u8; 8] = [
+        tile[1], tile[3], tile[5], tile[7], tile[9], tile[11], tile[13], tile[15],
+    ];
+    for i in 0..64 {
+        let j = i / 8;
+        let k = i % 8;
+        let mut pixel = (low[j] >> k) & 1;
+        pixel |= ((high[j] >> k) & 1) << 1;
+        output[i] = PALETTE[pixel as usize];
+    }
+    return output;
 }

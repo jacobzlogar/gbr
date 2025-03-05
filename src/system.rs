@@ -1,4 +1,10 @@
-use sdl3::{event::Event, keyboard::Keycode, pixels::Color};
+use sdl3::{
+    event::Event,
+    keyboard::Keycode,
+    pixels::{Color, PixelFormat},
+    render::TextureCreator,
+    sys::pixels::SDL_PIXELFORMAT_RGB24,
+};
 
 use crate::{
     apu::Apu,
@@ -9,7 +15,7 @@ use crate::{
     errors::SystemError,
     instructions::jumps::call_n16,
     interrupts::Interrupt,
-    memory::{registers::LY, Memory},
+    memory::{Memory, registers::LY},
 };
 
 pub struct System {
@@ -45,7 +51,7 @@ impl System {
                 Interrupt::Stat => 0x48,
                 Interrupt::Timer => 0x50,
                 Interrupt::Serial => 0x58,
-                Interrupt::Joypad => 0x60
+                Interrupt::Joypad => 0x60,
             };
             call_n16(handler, &mut self.cpu, &mut self.mem)
                 .map_err(|_| SystemError::InterruptHandlerError(interrupt, handler))?;
@@ -54,6 +60,14 @@ impl System {
     }
 
     pub fn run(&mut self) {
+        let mut texture_creator = self.ppu.canvas.texture_creator();
+        let mut texture = texture_creator
+            .create_texture_streaming(
+                PixelFormat::try_from(SDL_PIXELFORMAT_RGB24).unwrap(),
+                256,
+                256,
+            )
+            .unwrap();
         self.ppu.canvas.set_draw_color(Color::WHITE);
         self.ppu.canvas.clear();
         self.ppu.canvas.present();
@@ -71,7 +85,8 @@ impl System {
             }
             // scanline 144 is the beginning of vblank
             if self.mem.read(LY) <= 143 && lcdc.lcd_ppu_enable {
-                self.ppu.render_scanline(&mut self.mem, &self.clock, &lcdc);
+                self.ppu
+                    .render_scanline(&mut self.mem, &self.clock, &lcdc, &mut texture);
             }
             for event in self.ppu.event_pump.poll_iter() {
                 match event {
