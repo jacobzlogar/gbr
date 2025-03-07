@@ -2,7 +2,7 @@ use sdl3::{
     event::Event,
     keyboard::Keycode,
     pixels::{Color, PixelFormat},
-    render::TextureCreator,
+    render::{FRect, TextureCreator},
     sys::pixels::SDL_PIXELFORMAT_RGB24,
 };
 
@@ -64,15 +64,13 @@ impl System {
         let mut texture = texture_creator
             .create_texture_streaming(
                 PixelFormat::try_from(SDL_PIXELFORMAT_RGB24).unwrap(),
-                256,
-                256,
+                160,
+                144,
             )
             .unwrap();
         self.ppu.canvas.set_draw_color(Color::WHITE);
         self.ppu.canvas.clear();
-        self.ppu.canvas.present();
         'running: loop {
-            let lcdc = self.mem.lcd_control();
             // execute instructions
             self.clock.m_cycles += self.cpu.execute(&mut self.mem).unwrap() as usize;
             // advance the clock
@@ -83,10 +81,43 @@ impl System {
             if self.cpu.ime {
                 self.handle_interrupt();
             }
+            let scanline = self.mem.read(LY);
+            let lcdc = self.mem.lcd_control();
             // scanline 144 is the beginning of vblank
-            if self.mem.read(LY) <= 143 && lcdc.lcd_ppu_enable {
-                self.ppu
-                    .render_scanline(&mut self.mem, &self.clock, &lcdc, &mut texture);
+            if scanline <= 143 && lcdc.lcd_ppu_enable {
+                let pixels = self.ppu.update_scanline(&mut self.mem, &self.clock, &lcdc, scanline);
+                texture.with_lock(None, |buffer: &mut [u8], _: usize| {
+                    let start = (scanline as usize * 480) as usize;
+                    let end = start + 480;
+                    buffer[start..end].copy_from_slice(&pixels);
+                });
+                self.ppu.canvas
+                    .copy(&texture, None, Some(FRect::new(0.0, 0.0, 160.0, 144.0)))
+                    .unwrap();
+                self.clock.dots += 4;
+            }
+
+            match scanline {
+                143 => self.ppu.mode = PpuMode::VerticalBlank,
+                _ => (),
+            };
+            match self.clock.dots {
+                0..=80 => {
+                    // self.oam_scan(mem, scanline);
+                    self.ppu.mode = PpuMode::OAMScan;
+                }
+                81..=252 => {
+                    self.ppu.mode = PpuMode::Drawing;
+                    self.mem.oam_accessible = false;
+                    self.mem.vram_accessible = false;
+                    if lcdc.window_enable {}
+                    // TODO: add obj penalty variable mode length algorithm
+                    if lcdc.bg_window_enable {}
+                }
+                _ => {
+                    self.mem.oam_accessible = true;
+                    self.mem.vram_accessible = true;
+                }
             }
             for event in self.ppu.event_pump.poll_iter() {
                 match event {
@@ -98,6 +129,7 @@ impl System {
                     _ => {}
                 }
             }
+            self.ppu.canvas.present();
         }
     }
 }

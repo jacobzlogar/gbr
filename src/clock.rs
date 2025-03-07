@@ -17,7 +17,7 @@ impl Clock {
     }
     pub fn tick(&mut self, mem: &mut Memory) {
         self.master_clock += 1;
-        self.dots = self.m_cycles * 4;
+        // self.dots = self.m_cycles * 4;
         // a scanline has been completed, 456 dots per scanline
         if self.dots % 456 == 0 {
             mem.inc_scanline();

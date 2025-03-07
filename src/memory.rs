@@ -178,11 +178,11 @@ impl Memory {
             println!("banking mode select");
         }
         if addr >= 0xfe00 && addr <= 0xfe9f && (!self.oam_accessible || !self.vram_accessible) {
-            println!("Attempting to write to hram");
+            // println!("Attempting to write to hram");
             // return;
         }
         if addr >= 0x8000 && addr <= 0x9fff {
-            println!("Attempting to write to vram");
+            // println!("Attempting to write to vram");
             // return;
         }
         self.block[addr] = value;
@@ -197,25 +197,28 @@ impl Memory {
         }
     }
 
-    pub fn get_tile_map(&mut self, tile_map_area: [usize; 2]) -> [u8; 1024] {
-        let mut tile_map = [0u8; 1024];
-        let slice = &self.block[tile_map_area[0]..=tile_map_area[1]];
-        tile_map.copy_from_slice(slice);
+    pub fn get_tile_map(&mut self, tile_map_area: [usize; 2]) -> [[u8; 32]; 32] {
+        let mut tile_map = [[0u8; 32]; 32];
+        for (index, chunk) in self.block[tile_map_area[0]..=tile_map_area[1]].chunks_exact(32).enumerate() {
+            let mut tile_chunk: [u8; 32] = [0u8; 32];
+            tile_chunk.copy_from_slice(chunk);
+            tile_map[index] = tile_chunk;
+        }
         tile_map
     }
 
     pub fn get_tile_data(
         &mut self,
         tile_data_area: [[usize; 2]; 2],
-    ) -> ([[u8; 64]; 128], [[u8; 64]; 128]) {
-        let mut tile_block_0 = [[0u8; 64]; 128];
+    ) -> ([[[u8; 8]; 8]; 128], [[[u8; 8]; 8]; 128]) {
+        let mut tile_block_0 = [[[0u8; 8]; 8]; 128];
         for (tile, chunk) in tile_block_0
             .iter_mut()
             .zip(self.block[tile_data_area[0][0]..=tile_data_area[0][1]].chunks_exact(16))
         {
             *tile = decode_tile(chunk);
         }
-        let mut tile_block_1 = [[0u8; 64]; 128];
+        let mut tile_block_1 = [[[0u8; 8]; 8]; 128];
         for (tile, chunk) in tile_block_1
             .iter_mut()
             .zip(self.block[tile_data_area[1][0]..=tile_data_area[1][1]].chunks_exact(16))
@@ -289,5 +292,21 @@ impl Memory {
 
     pub fn get_interrupt_registers(&self) -> &u8 {
         &self.block[INTERRUPT_ENABLE_REGISTER]
+    }
+
+    pub fn scx(&self) -> &u8 {
+        &self.block[SCX]
+    }
+
+    pub fn scy(&self) -> &u8 {
+        &self.block[SCY]
+    }
+
+    pub fn wx(&self) -> &u8 {
+        &self.block[WX]
+    }
+
+    pub fn wy(&self) -> &u8 {
+        &self.block[WY]
     }
 }

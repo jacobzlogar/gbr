@@ -10,7 +10,7 @@ use sdl3::sys::pixels::{
 };
 use sdl3::sys::rect::SDL_GetRectAndLineIntersectionFloat;
 use sdl3::sys::stdinc::SDL_sinf;
-use sdl3::video::{Window, WindowContext};
+use sdl3::video::{SystemTheme, Window, WindowContext};
 use sdl3::{Error, EventPump};
 
 use crate::clock::Clock;
@@ -48,13 +48,11 @@ pub struct Ppu {
     pub scanline: u16,
     pub mode: PpuMode,
     pub frame_buffer: Vec<u8>,
-    pub texture_creator: TextureCreator<WindowContext>,
 }
 
 impl Ppu {
     pub fn new() -> Self {
         let (canvas, event_pump) = setup_ctx().unwrap();
-        let texture_creator = canvas.texture_creator();
         Self {
             canvas,
             event_pump,
@@ -62,7 +60,6 @@ impl Ppu {
             scanline: 0,
             mode: PpuMode::OAMScan,
             frame_buffer: vec![],
-            texture_creator,
         }
     }
     pub fn oam_scan(&mut self, mem: &mut Memory, scanline: u8) {
@@ -71,76 +68,42 @@ impl Ppu {
             if chunk[0] == scanline {}
         }
     }
-    pub fn render_scanline(
+    pub fn update_scanline(
         &mut self,
         mem: &mut Memory,
         clock: &Clock,
         lcdc: &LcdControl,
-        texture: &mut Texture,
-    ) {
-        let scanline = mem.block[LY];
-        let window_tile_map = mem.get_tile_map(lcdc.window_tile_map_area);
-        let bg_tile_map = mem.get_tile_map(lcdc.bg_tile_map_area);
+        scanline: u8,
+    ) -> [u8; 480] {
+        // scrolling positions
+        let scx = *mem.scx() as usize;
+        let scy = *mem.scy() as usize;
+        // 160 visible vertical pixels, 3 bytes per pixel
+        let mut pixels: [u8; 480] = [0u8; 480];
+        let mut buffer_index = 480;
+        // let window_tilemap = mem.get_tile_map(lcdc.window_tile_map_area);
+        let bg_tilemap = mem.get_tile_map(lcdc.bg_tile_map_area);
         let (tile_block_0, tile_block_1) = mem.get_tile_data(lcdc.tile_data_area);
-        texture
-            .with_lock(None, |buffer: &mut [u8], pitch: usize| {
-                println!("{pitch}");
-                // tile maps are 32x32
-                for y in 0..32 {
-                    for x in 0..32 {
-                        let tile_map = bg_tile_map[y * 32 + x];
-                        // tiles are 8x8
-                        for i in 0..8 {
-                            for j in 0..8 {
-                                let offset = (y * 8 + j) * pitch + (x * 8 + i) * 3;
-                                // let offset = (y * 8 + j) * pitch + (x * 8 + i) * 4;
-                                let tile_index: usize = i + j * 8;
-                                if tile_map <= 127 {
-                                    let pixel = tile_block_1[tile_map as usize][tile_index];
-                                    buffer[offset] = pixel;
-                                    buffer[offset + 1] = pixel;
-                                    buffer[offset + 2] = pixel;
-                                } else {
-                                    let pixel = tile_block_0[tile_map as usize][tile_index];
-                                    buffer[offset] = pixel;
-                                    buffer[offset + 1] = pixel;
-                                    buffer[offset + 2] = pixel;
-                                }
-                            }
-                        }
-                        // println!("{:?}", bg_tile_map.len());
-                    }
-                }
-            })
-            .unwrap();
-        self.canvas
-            .copy(&texture, None, Some(FRect::new(0.0, 0.0, 256.0, 256.0)))
-            .unwrap();
-        match scanline {
-            143 => self.mode = PpuMode::VerticalBlank,
-            _ => (),
-        };
-        match clock.dots {
-            0..=80 => {
-                // self.oam_scan(mem, scanline);
-                self.mode = PpuMode::OAMScan;
-            }
-            81..=252 => {
-                self.mode = PpuMode::Drawing;
-                mem.oam_accessible = false;
-                mem.vram_accessible = false;
-                if lcdc.window_enable {
-                    // println!("window_tile_map: {:?}", lcdc.window_tile_map_area);
-                }
-                if lcdc.bg_window_enable {}
-                // TODO: add obj penalty variable mode length algorithm
-                self.canvas.present();
-            }
-            _ => {
-                mem.oam_accessible = true;
-                mem.vram_accessible = true;
+        // index into tilemap: there are 32x32 (1024) indices which represents all 256x256 pixels
+        // but only 160x144 pixels are visible at any given time, each tile is 8x8 pixels; when iterating
+        // over a scanline we only want to display the  pixels in the correct row (i think?)
+        let y = scanline as usize;
+        for x in (0..20).rev() {
+            let tilemap = bg_tilemap[y / 8][x];
+            let tile = if tilemap < 127 {
+                tile_block_1[tilemap as usize][y % 8]
+            } else {
+                tile_block_0[tilemap as usize][y % 8]
+            };
+            for i in 0..8 {
+                let pixel = tile[i];
+                pixels[buffer_index-1] = pixel;
+                pixels[buffer_index-2] = pixel;
+                pixels[buffer_index-3] = pixel;
+                buffer_index -= 3;
             }
         }
+        pixels
     }
 }
 
@@ -148,7 +111,7 @@ pub fn setup_ctx() -> Result<(Canvas<Window>, EventPump), Error> {
     let sdl_context = sdl3::init()?;
     let video_subsystem = sdl_context.video()?;
     let window = video_subsystem
-        .window("test", 256, 256)
+        .window("test", 160, 144)
         .position_centered()
         .build()
         .unwrap();
@@ -156,20 +119,38 @@ pub fn setup_ctx() -> Result<(Canvas<Window>, EventPump), Error> {
     Ok((window.into_canvas(), sdl_context.event_pump()?))
 }
 
-pub mod tests {
-    use crate::cartridge::Cartridge;
-    use crate::{dump_tiles, memory::Memory};
+mod tests {
 
-    use super::TILEMAP;
+    use crate::{cartridge::{self, Cartridge}, decode_tile, dump_tiles, memory::Memory};
+    use super::{TILES, TILEMAP};
 
     #[test]
-    fn test_decode_tile() {
-        let mut buffer = vec![];
-        for y in 0..32 {
-            for x in 0..32 {
-                let tile_map = TILEMAP[y * 32 + x];
+    fn test_decode() {
+        let mut image_buffer = vec![];
+        let path = format!("{}/roms/rom.gb", env!("CARGO_MANIFEST_DIR"));
+        let binary = std::fs::read(&path).unwrap();
+        let cartridge = Cartridge::new(binary).unwrap();
+        let mut memory = Memory::new(cartridge);
+        let mut lcdc = memory.lcd_control();
+        lcdc.tile_data_area = [[0x8800, 0x8fff], [0x9000, 0x97ff]];
+        memory.block[0x9800..=0x9bff].copy_from_slice(&TILEMAP);
+        memory.block[0x9000..0x9000+1120].copy_from_slice(&TILES);
+        let bg_tilemap = memory.get_tile_map(lcdc.bg_tile_map_area);
+        let (tile_block_0, tile_block_1) = memory.get_tile_data(lcdc.tile_data_area);
+        for y in 0..256 {
+            for x in (0..32).rev() {
+                let tilemap = bg_tilemap[y / 8][x];
+                for i in 0..8 {
+                    let pixel = if tilemap < 127 {
+                        tile_block_1[tilemap as usize][y % 8][i]
+                    } else {
+                        tile_block_0[tilemap as usize][y % 8][i]
+                    };
+                    image_buffer.push(pixel);
+                }
             }
         }
+        dump_tiles(image_buffer, 256, 256);
     }
 }
 
