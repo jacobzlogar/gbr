@@ -104,7 +104,7 @@ pub fn jr_n16(e8: u8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
 pub fn jr_cc_n16(e8: u8, condition: Condition, cpu: &mut Cpu) -> InstructionResult<Instruction> {
     if cpu.cc(condition) {
         let offset = e8 as i8;
-        // println!("{condition:?} {e8} {:?} {offset} {}", cpu, cpu.registers.pc.wrapping_add_signed(offset as i16));
+        // println!("{offset} {e8} {cpu:?}");
         cpu.registers
             .set_r16(R16::PC, cpu.registers.pc.wrapping_add(offset as u16));
         return Ok(Instruction {

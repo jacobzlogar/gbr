@@ -39,7 +39,8 @@ pub fn sub_8bit(a: u8, b: u8, carry_flag: Option<bool>) -> (u8, u8) {
     let (sum, overflows) = a.overflowing_sub(b - carry);
     let carry = b >= sum;
     let mut flags: u8 = 0;
-    flags |= (overflows as u8) << 7;
+    let is_zero = overflows || sum == 0;
+    flags |= (is_zero as u8) << 7;
     flags |= 1 << 6;
     flags |= (half_carry as u8) << 5;
     flags |= (carry as u8) << 4;
@@ -199,7 +200,7 @@ pub fn cp_a_n8(n8: u8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
 pub fn dec_r8(r8: R8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
     let reg = cpu.registers.get_r8(r8);
     let (sum, flags) = sub_8bit(reg, 1, None);
-    println!("r8: {reg:?}, sum: {sum} flags: {flags:08b}");
+    // println!("r8: {reg:?}, sum: {sum} flags: {flags:08b}");
     cpu.registers.set_r8(r8, sum);
     cpu.registers.flags.set(flags);
     cpu.registers.pc += 1;
@@ -358,15 +359,21 @@ pub fn sub_a_n8(n8: u8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
 
 mod tests {
     use super::*;
+    use crate::cpu::{Cpu, R8};
 
     #[test]
-    fn test_adc_a_r8() {}
+    fn test_sub_8_bit() {
+        let a = 0;
+        let b = 1;
+        let (sum, flags) = sub_8bit(a, b, None);
+        assert_eq!(sum, 0xff);
+    }
 
     #[test]
-    fn test_sbc_a_r8() {}
-    #[test]
-    fn test_cp_a_to_r8() {}
-
-    #[test]
-    fn test_dec_r8() {}
+    fn test_dec_r8() {
+        let mut cpu = Cpu::default();
+        cpu.registers.set_r8(R8::B, 1);
+        dec_r8(R8::B, &mut cpu);
+        println!("{:?}", cpu);
+    }
 }

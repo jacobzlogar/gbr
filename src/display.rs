@@ -49,7 +49,6 @@ pub struct Ppu {
     pub mode: PpuMode,
     pub frame_buffer: Vec<u8>,
 }
-
 impl Ppu {
     pub fn new() -> Self {
         let (canvas, event_pump) = setup_ctx().unwrap();

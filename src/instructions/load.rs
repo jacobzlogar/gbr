@@ -17,6 +17,7 @@ pub fn ld_r8_r8(
     dest: R8,
     cpu: &mut Cpu,
 ) -> InstructionResult<Instruction> {
+    println!("load source r8: {source:?} into dest r8: {dest:?}");
     let src = cpu.registers.get_r8(source);
     cpu.registers.set_r8(dest, src);
     cpu.registers.pc += 1;
@@ -30,7 +31,7 @@ pub fn ld_r8_r8(
 /// LD r8, n8
 /// Copy the value n8 into register r8.
 pub fn ld_r8_n8(r8: R8, n8: u8, cpu: &mut Cpu) -> InstructionResult<Instruction> {
-    // println!("{n8} {r8:?}");
+    println!("load n8: {n8} into r8: {r8:?}");
     cpu.registers.set_r8(r8, n8);
     cpu.registers.pc += 2;
     Ok(Instruction {
@@ -43,6 +44,7 @@ pub fn ld_r8_n8(r8: R8, n8: u8, cpu: &mut Cpu) -> InstructionResult<Instruction>
 /// LD r16, n16
 /// Copy the value n16 into register r16.
 pub fn ld_r16_n16(r16: R16, n16: u16, cpu: &mut Cpu) -> InstructionResult<Instruction> {
+    // println!("{n16}");
     cpu.registers.set_r16(r16, n16);
     cpu.registers.pc += 3;
     Ok(Instruction {
@@ -248,8 +250,10 @@ pub fn ld_a_hld(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instructio
 pub fn ld_hld_a(cpu: &mut Cpu, mem: &mut Memory) -> InstructionResult<Instruction> {
     let hl = cpu.registers.hl;
     let byte = mem.read(hl as usize);
+    let a = cpu.registers.a;
     cpu.registers.set_r8(R8::A, byte);
     cpu.registers.set_r16(R16::HL, hl - 1);
+    println!("loading a: 0x{a:0x} into byte at hl(0x{hl:0x}): 0x{byte:0x}");
     // println!("{} {byte} {}", cpu.registers.hl, cpu.registers.a);
     cpu.registers.pc += 1;
     Ok(Instruction {

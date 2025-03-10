@@ -189,7 +189,7 @@ impl Cpu {
     }
     pub fn execute(&mut self, memory: &mut Memory) -> Result<u8, CpuError> {
         let pc = self.registers.pc as usize;
-        let cloned_memory = memory.clone();
+        let mut cloned_memory = memory.clone();
         let rom = &cloned_memory.rom()[pc..];
         let mut iter = rom.iter();
         let opcode_byte = *iter.next().ok_or(CpuError::MissingOpcodeByte)?;
@@ -199,12 +199,15 @@ impl Cpu {
             memory,
         };
         if let Ok(instruction) = INSTRUCTION_SET[opcode_byte as usize](&mut ctx) {
-            // println!("0x{opcode_byte:0x}");
+            println!("0x{opcode_byte:0x}");
             match instruction.mnemonic {
                 Mnemonic::NOP | Mnemonic::RST => (),
                 Mnemonic::RETI | Mnemonic::EI => self.ime = true,
-                _ => (),
-                // _ => println!("{instruction:?}"),
+                // Mnemonic::JR => {
+                //     println!("{}", self.registers.pc);
+                // },
+                // _ => (),
+                _ => println!("{instruction:?}"),
             };
             return Ok(instruction.cycles);
         }
@@ -255,5 +258,16 @@ impl Into<u8> for Flags {
         flags |= (self.half_carry as u8) << 5;
         flags |= (self.carry as u8) << 7;
         flags
+    }
+}
+
+impl From<u8> for Flags {
+    fn from(value: u8) -> Self {
+        Self {
+            zero: value & 0x80 == 1,
+            subtraction: value & 0x40 == 1,
+            half_carry: value & 0x20 == 1,
+            carry: value & 0x10 == 1,
+        }
     }
 }

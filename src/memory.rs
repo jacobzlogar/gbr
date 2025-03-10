@@ -240,8 +240,8 @@ impl Memory {
         TimerControl::try_from(self.block[TAC]).unwrap()
     }
 
-    pub fn rom(&self) -> &[u8] {
-        &self.block[ROM_BANK_0_START..ROM_BANK_1_END]
+    pub fn rom(&mut self) -> &mut [u8] {
+        &mut self.block[ROM_BANK_0_START..ROM_BANK_1_END]
     }
 
     pub fn setup_mbc(&mut self) {

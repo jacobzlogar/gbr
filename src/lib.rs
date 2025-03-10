@@ -20,6 +20,7 @@ pub mod system;
 
 /// Holds the necessary context for instruction decoding.
 pub struct DecodeContext<'a> {
+    // TODO: remove this and iterate the rom another way, cloning memory in every loop is probably expensive
     pub iter: std::slice::Iter<'a, u8>,
     pub cpu: &'a mut Cpu,
     pub memory: &'a mut Memory,

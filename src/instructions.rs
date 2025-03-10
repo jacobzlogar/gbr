@@ -40,7 +40,7 @@ pub type InstructionResult<T> = std::result::Result<T, DecodeError>;
 /// Game Boy CPU (SM83) instruction set
 /// https://gbdev.io/gb-opcodes/optables/#standard
 pub const INSTRUCTION_SET: [DecodeFn; 256] = [
-    // row 1
+    // 0x0n -> 0x0f 
     |ctx| nop(ctx.cpu),
     |ctx| ld_r16_n16(R16::BC, get_u16(&mut ctx.iter)?, ctx.cpu),
     |ctx| ld_immed_r16_a(R16::BC, ctx.cpu, ctx.memory),
@@ -57,7 +57,7 @@ pub const INSTRUCTION_SET: [DecodeFn; 256] = [
     |ctx| dec_r8(R8::C, ctx.cpu),
     |ctx| ld_r8_n8(R8::C, get_u8(&mut ctx.iter)?, ctx.cpu),
     |ctx| rrca(ctx.cpu),
-    // row 2
+    // 0x1n -> 0x1f
     |ctx| stop(ctx.cpu, ctx.memory),
     |ctx| ld_r16_n16(R16::DE, get_u16(&mut ctx.iter)?, ctx.cpu),
     |ctx| ld_immed_r16_a(R16::DE, ctx.cpu, ctx.memory),
